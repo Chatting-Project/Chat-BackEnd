@@ -1,6 +1,8 @@
 package com.chat.api;
 
-import com.chat.consts.SessionConst;
+import com.chat.socket.manager.PreviousChatRoomManager;
+import com.chat.socket.manager.WebsocketSessionManager;
+import com.chat.utils.consts.SessionConst;
 import com.chat.service.ChatService;
 import com.chat.service.dtos.ChatHistory;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +12,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.SessionAttribute;
+import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.util.List;
 
 @Slf4j
@@ -19,12 +23,19 @@ import java.util.List;
 public class ChatApiController {
 
     private final ChatService chatService;
+    private final WebsocketSessionManager websocketSessionManager;
+    private final PreviousChatRoomManager previousChatRoomManager;
 
     @GetMapping("/api/chats")
     public Result<List<ChatHistory>> chatHistory(@RequestParam("chatRoomId") Long chatRoomId,
-                              @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+                              @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) throws IOException {
 
+        // 채팅 내역 조회
         List<ChatHistory> chatHistory = chatService.findChatHistory(chatRoomId, loginMemberId);
+
+        // 채팅 소켓 연결
+        WebSocketSession webSocketSession = websocketSessionManager.getSessionBy(loginMemberId);
+        previousChatRoomManager.addSessionToRoom(chatRoomId, webSocketSession);
 
         return Result
                 .<List<ChatHistory> >builder()
