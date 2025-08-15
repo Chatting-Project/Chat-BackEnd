@@ -33,7 +33,7 @@ public interface ChatReadRepository extends JpaRepository<ChatRead, Long> {
             " and cr.member.id = :memberId")
     ChatRead findBy(@Param("chatId") Long chatId, @Param("memberId") Long memberId);
 
-    @Query("SELECT new com.chat.service.dtos.LastChatRead(cr.member.id, MAX(c.id))" +
+    @Query("SELECT new com.chat.service.dtos.LastChatRead(cr.member.id, COALESCE(MAX(CASE WHEN cr.isRead = true THEN c.id ELSE 0 END), 0))" +
             "FROM ChatRead cr " +
             "JOIN cr.chat c " +
             "JOIN c.chatRoom r " +
