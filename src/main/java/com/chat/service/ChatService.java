@@ -70,6 +70,8 @@ public class ChatService {
                 boolean isRead = findChatRoomParticipant.isParticipate();
                 ChatRead chatRead = new ChatRead(isRead, participant, chat);
                 chatReadRepository.save(chatRead);
+            } else {
+                chatReadRepository.save(new ChatRead(true, participant, chat));
             }
         }
     }
