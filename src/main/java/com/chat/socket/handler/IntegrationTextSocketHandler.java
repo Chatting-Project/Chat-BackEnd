@@ -43,7 +43,9 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
 
                 log.info("chat : {} member : {}", payload, loginMemberId);
 
-                chatRoomManager.broadcastMessageToChatRoom(loginMemberId, sendChat.getChatRoomId(), payload);
+                Long chatRoomId = sendChat.getChatRoomId();
+                chatRoomManager.broadcastMessageToChatRoom(loginMemberId, chatRoomId, payload);
+                websocketSessionManager.broadcastToChatRoomMembers(chatRoomId);
                 break;
             default:
                 //todo 채팅 메시지 예외처리
@@ -58,10 +60,6 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
         log.info("close Websocket member : {}", loginMemberId);
 
         websocketSessionManager.removeSession(loginMemberId);
-
-        // todo 채팅방 세션 삭제 필요
-        chatRoomManager.removeChatRoomsSessionBy(loginMemberId);
     }
-
 
 }
