@@ -142,6 +142,7 @@ public class ChatRoomService {
                     .title(chatRoom.getTitle())
                     .chatRoomId(chatRoomId)
                     .lastMessage(lastChat != null ? lastChat.getMessage() : null)
+                    .createdDate(lastChat != null ? lastChat.getCreatedDate() : null)
                     .unReadCount(unReadCount)
                     .opponents(opponents);
 

@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -14,14 +15,16 @@ public class ChatRoomsResponse {
     private String title;
     private String lastMessage;
     private Long unReadCount;
+    private LocalDateTime createdDate;
     private List<OpponentResponse> opponents;
 
     @Builder
-    public ChatRoomsResponse(Long chatRoomId, String title, String lastMessage, Long unReadCount, List<OpponentResponse> opponents) {
+    public ChatRoomsResponse(Long chatRoomId, String title, String lastMessage, Long unReadCount, LocalDateTime createdDate, List<OpponentResponse> opponents) {
         this.chatRoomId = chatRoomId;
         this.title = title;
         this.lastMessage = lastMessage;
         this.unReadCount = unReadCount;
+        this.createdDate = createdDate;
         this.opponents = opponents;
     }
 }
