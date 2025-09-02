@@ -1,15 +1,10 @@
 package com.chat.socket.manager;
 
-import com.chat.service.ChatReadService;
-import com.chat.service.ChatRoomParticipantService;
-import com.chat.service.ChatRoomService;
-import com.chat.service.ChatService;
-import com.chat.service.dtos.LastChatRead;
-import com.chat.service.dtos.SaveChatData;
+import com.chat.exception.CustomException;
+import com.chat.exception.ErrorCode;
 import com.chat.service.dtos.chat.EnterChatRoom;
-import com.chat.service.dtos.chat.SendChat;
 import com.chat.utils.consts.SessionConst;
-import com.chat.utils.message.MessageType;
+import com.chat.utils.valid.IdValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,6 +12,8 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,81 +24,59 @@ public class ChatRoomManager {
 
     private final Map<Long, Set<WebSocketSession>> chatRooms = new ConcurrentHashMap<>();
     private final Map<Long, Set<Long>> memberToRoomsMap = new ConcurrentHashMap<>();
-    private final ChatRoomService chatRoomService;
-    private final ChatService chatService;
-    private final ChatRoomParticipantService chatRoomParticipantService;
-    private final ChatReadService chatReadService;
     private final ObjectMapper objectMapper;
 
-    public void addSessionToRoom(Long chatRoomId, WebSocketSession session) throws IOException {
+    public void addSessionToRoom(WebSocketSession session, Long chatRoomId) {
 
-        chatRoomService.validChatRoomId(chatRoomId);
-
+        IdValidator.requireChatRoomId(chatRoomId);
         Long loginMemberId = (Long) session.getAttributes().get(SessionConst.SESSION_ID);
-        chatRoomParticipantService.enterChatRoom(chatRoomId, loginMemberId);
 
         chatRooms.computeIfAbsent(chatRoomId, key -> ConcurrentHashMap.newKeySet()).add(session);
         memberToRoomsMap.computeIfAbsent(loginMemberId, k -> ConcurrentHashMap.newKeySet()).add(chatRoomId);
-
-        broadcastEnterChatRoom(loginMemberId, chatRoomId);
     }
 
-    public void broadcastEnterChatRoom(Long loginMemberId, Long chatRoomId) throws IOException {
+    public void broadcastEnterChatRoom(Long chatRoomId, EnterChatRoom enterChatRoom) {
 
-        LastChatRead lastChatRead = chatReadService.findLastChatBy(loginMemberId, chatRoomId);
-        EnterChatRoom enterChatRoom = EnterChatRoom.builder()
-                .messageType(MessageType.CHAT_ENTER)
-                .lastReadChatId(lastChatRead != null ? lastChatRead.getLastChatReadId() : null)
-                .memberId(lastChatRead != null ? lastChatRead.getMemberId() : null)
-                .build();
-        String enterChatRoomMessage = objectMapper.writeValueAsString(enterChatRoom);
+        IdValidator.requireChatRoomId(chatRoomId);
 
-        Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
+        try {
+            String enterChatRoomMessage = objectMapper.writeValueAsString(enterChatRoom);
+            Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
 
-        for (WebSocketSession session : sessions) {
-            session.sendMessage(new TextMessage(enterChatRoomMessage));
+            for (WebSocketSession session : sessions) {
+                session.sendMessage(new TextMessage(enterChatRoomMessage));
+            }
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
         }
     }
 
-    public void removeChatRoomsSessionBy(Long memberId) {
-        Set<Long> chatRoomIds = memberToRoomsMap.get(memberId);
+    public Set<WebSocketSession> getWebSocketSessionBy(Long chatRoomId) {
+        Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
+        if (sessions == null || sessions.isEmpty()) {
+            throw new CustomException(ErrorCode.WEB_SOCKET_SESSION_NOT_EXIST);
+        }
+        return sessions;
+    }
 
-        if (chatRoomIds == null || chatRoomIds.isEmpty()) {
+    public Set<Long> getChatRoomIdsBy(Long memberId) {
+        return memberToRoomsMap.get(memberId);
+    }
+
+    public void removeChatRoomSession(Long chatRoomId, Long memberId) {
+        Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
+        if (sessions == null) {
             return;
         }
 
-        for (Long chatRoomId : chatRoomIds) {
-            chatRoomParticipantService.leaveChatRoom(chatRoomId, memberId);
-
-            Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
-            sessions.removeIf(session -> {
-                Object userIdObj = session.getAttributes().get(SessionConst.SESSION_ID);
-                if (userIdObj instanceof Long) {
-                    return ((Long) userIdObj).equals(memberId);
-                }
-                return false;
-            });
-        }
-    }
-
-    public void broadcastMessageToChatRoom(Long senderId, Long chatRoomId, String message) throws IOException {
-
-        Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
-        if (sessions == null || sessions.isEmpty()) {
-            //todo 예외처리
-            return ;
-        }
-
-        SendChat sendChat = objectMapper.readValue(message, SendChat.class);
-
-        Long savedChatId = chatService.saveChat(senderId, chatRoomId, sendChat.getMessage());
-        SaveChatData chatData = chatService.findChatData(savedChatId);
-
-        sendChat.updateSavedChat(chatData);
-        String sendChatMessage = objectMapper.writeValueAsString(sendChat);
-
+        List<WebSocketSession> toRemove = new ArrayList<>();
         for (WebSocketSession session : sessions) {
-            session.sendMessage(new TextMessage(sendChatMessage));
+            Object userIdObj = session.getAttributes().get(SessionConst.SESSION_ID);
+            if (userIdObj instanceof Long && ((Long) userIdObj).equals(memberId)) {
+                toRemove.add(session);
+            }
         }
+
+        sessions.removeAll(toRemove);
     }
 }
