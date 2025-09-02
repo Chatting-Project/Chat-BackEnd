@@ -37,6 +37,6 @@ public interface ChatRoomParticipantRepository extends JpaRepository<ChatRoomPar
             " FROM ChatRoomParticipant crp" +
             " WHERE crp.chatRoom.id = :chatRoomId" +
             " AND crp.member.id = :memberId")
-    ChatRoomParticipant findByChatRoomIdAndMemberId(@Param("chatRoomId") Long chatRoomId,
-                                                    @Param("memberId") Long memberId);
+    ChatRoomParticipant findChatRoomBy(@Param("chatRoomId") Long chatRoomId,
+                                       @Param("memberId") Long memberId);
 }
