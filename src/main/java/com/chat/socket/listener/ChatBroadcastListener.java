@@ -3,6 +3,7 @@ package com.chat.socket.listener;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.service.dtos.chat.SendChat;
+import com.chat.socket.event.PublishMessageEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,10 +22,10 @@ public class ChatBroadcastListener {
     private final ObjectMapper objectMapper;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void publishMessageToSessions(SendChat sendChat, Set<WebSocketSession> sessions) {
+    public void publishMessageToSessions(PublishMessageEvent event) {
         try {
-            String sendChatMessage = objectMapper.writeValueAsString(sendChat);
-            for (WebSocketSession session : sessions) {
+            String sendChatMessage = objectMapper.writeValueAsString(event.getSendChat());
+            for (WebSocketSession session : event.getSessions()) {
                 session.sendMessage(new TextMessage(sendChatMessage));
             }
         } catch (IOException e) {

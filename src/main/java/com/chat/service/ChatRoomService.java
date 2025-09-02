@@ -12,6 +12,7 @@ import com.chat.service.dtos.SaveChatRoomDTO;
 import com.chat.service.dtos.chat.EnterChatRoom;
 import com.chat.service.dtos.chat.SendChat;
 import com.chat.service.dtos.chat.UpdateChatRoom;
+import com.chat.socket.event.PublishMessageEvent;
 import com.chat.socket.listener.ChatBroadcastListener;
 import com.chat.socket.manager.ChatRoomManager;
 import com.chat.socket.manager.WebsocketSessionManager;
@@ -86,7 +87,7 @@ public class ChatRoomService {
         SaveChatData chatData = chatService.findChatData(saveChatId);
         sendChat.updateSavedChat(chatData);
 
-        chatBroadcastListener.publishMessageToSessions(sendChat, SessionsInChatRoom);
+        chatBroadcastListener.publishMessageToSessions(new PublishMessageEvent(sendChat, SessionsInChatRoom));
     }
 
     public void broadcastToChatRoomMembers(Long chatRoomId) {
