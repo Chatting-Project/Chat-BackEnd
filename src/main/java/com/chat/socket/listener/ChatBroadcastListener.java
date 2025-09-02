@@ -2,7 +2,6 @@ package com.chat.socket.listener;
 
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
-import com.chat.service.dtos.chat.SendChat;
 import com.chat.socket.event.PublishMessageEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +12,6 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
-import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
