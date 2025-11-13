@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.SessionAttribute;
 
-import java.io.IOException;
 import java.util.List;
 
 @Slf4j
@@ -25,7 +24,7 @@ public class ChatApiController {
 
     @GetMapping("/api/chats")
     public Result<List<ChatHistory>> chatHistory(@RequestParam("chatRoomId") Long chatRoomId,
-                                                 @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) throws IOException {
+                                                 @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
 
         // 채팅 내역 조회
         List<ChatHistory> chatHistory = chatService.findChatHistory(chatRoomId, loginMemberId);
