@@ -88,6 +88,7 @@ public class MemberService {
 
         Set<Long> chatRoomIds = chatRoomManager.getChatRoomIdsBy(memberId);
         if (chatRoomIds == null || chatRoomIds.isEmpty()) {
+            websocketSessionManager.removeSession(memberId);
             return;
         }
 
