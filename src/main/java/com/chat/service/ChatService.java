@@ -4,6 +4,7 @@ import com.chat.entity.*;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.repository.*;
+import com.chat.repository.dtos.ChatUnreadCount;
 import com.chat.service.dtos.ChatHistory;
 import com.chat.service.dtos.SaveChatData;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -91,33 +94,38 @@ public class ChatService {
     }
 
     private List<ChatHistory> createChatHistoryResponse(Long chatRoomId, Long memberId) {
-        List<Chat> findChatHistory = chatRepository.findChatHistory(chatRoomId);
+        List<Chat> chats = chatRepository.findChatHistory(chatRoomId);
 
-        List<ChatHistory> chatHistories = new ArrayList<>();
+        if (chats.isEmpty()) {
+            return List.of();
+        }
 
-        for (Chat chat : findChatHistory) {
+        List<Long> chatIds = chats.stream()
+                .map(Chat::getId)
+                .toList();
 
+        Map<Long, Long> unreadCountMap = chatReadRepository.countUnreadByChatIds(chatIds).stream()
+                .collect(Collectors.toMap(
+                        ChatUnreadCount::getChatId,
+                        ChatUnreadCount::getUnreadCount
+                ));
+
+        chatReadRepository.updateUnreadChatReadsToRead(memberId, chatRoomId);
+
+        List<ChatHistory> response = new ArrayList<>(chats.size());
+        for (Chat chat : chats) {
             Member sender = chat.getMember();
+            Long unreadCount = unreadCountMap.getOrDefault(chat.getId(), 0L);
 
-            ChatRead findChatRead = chatReadRepository.findBy(chat.getId(), memberId);
-            if (findChatRead != null) {
-                findChatRead.updateIsReadTrue();
-            }
-
-            Long unReadCount = chatReadRepository.findUnReadCountBy(chat.getId());
-
-            ChatHistory chatHistory = ChatHistory.builder()
+            response.add(ChatHistory.builder()
                     .chatId(chat.getId())
                     .senderNickname(sender.getNickname())
                     .senderId(sender.getId())
                     .message(chat.getMessage())
-                    .unReadCount(unReadCount)
+                    .unReadCount(unreadCount)
                     .createdDate(chat.getCreatedDate())
-                    .build();
-
-            chatHistories.add(chatHistory);
+                    .build());
         }
-
-        return chatHistories;
+        return response;
     }
 }

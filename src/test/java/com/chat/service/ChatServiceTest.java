@@ -122,6 +122,38 @@ class ChatServiceTest {
         assertThat(firstChat.getChatId()).isEqualTo(firstChatId);
         assertThat(firstChat.getSenderId()).isEqualTo(firstMember.getId());
         assertThat(firstChat.getUnReadCount()).isEqualTo(1L);
+
+        ChatHistory secondChat = chatHistory.get(1);
+        assertThat(secondChat.getUnReadCount()).isEqualTo(2L);
+
+        ChatHistory thirdChat = chatHistory.get(2);
+        assertThat(thirdChat.getUnReadCount()).isEqualTo(2L);
+
+        Long remainingUnread = chatReadRepository.findUnReadCountBy(chatRoomId,
+                firstMember.getId());
+        assertThat(remainingUnread).isEqualTo(0L);
+
         assertThat(firstChat.getMessage()).isEqualTo("message");
+    }
+
+    @Test
+    @DisplayName("채팅방에 메시지가 없으면 빈 리스트를 반환한다.")
+    void findChatHistoryEmptyTest() {
+        // given
+        Member firstMember = fixture.savedMemberBy("firstMember");
+        Member secondMember = fixture.savedMemberBy("secondMember");
+
+        List<Member> participants = new ArrayList<>();
+        participants.add(firstMember);
+        participants.add(secondMember);
+
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
+
+        // when
+        List<ChatHistory> chatHistory = chatService.findChatHistory(chatRoom.getId(),
+                firstMember.getId());
+
+        // then
+        assertThat(chatHistory).isEmpty();
     }
 }

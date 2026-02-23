@@ -44,7 +44,7 @@ public class TestDataFixture {
         return memberRepository.save(member);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+//    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ChatRoom savedChatRoomBy(String title, List<Member> participants) {
 
         ChatRoom chatRoom = ChatRoom.of(title);
