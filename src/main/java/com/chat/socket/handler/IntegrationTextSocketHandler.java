@@ -4,6 +4,7 @@ import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.service.ChatRoomService;
 import com.chat.service.MemberService;
+import com.chat.service.dtos.chat.EnterRoomRequest;
 import com.chat.service.dtos.chat.SendChat;
 import com.chat.socket.manager.WebsocketSessionManager;
 import com.chat.utils.consts.SessionConst;
@@ -57,6 +58,12 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
 
                 chatRoomService.broadCastMessage(sendChat);
                 chatRoomService.broadcastToChatRoomMembers(chatRoomId);
+
+                break;
+            case ENTER_ROOM:
+                EnterRoomRequest enterRoomRequest = (EnterRoomRequest) baseMessage;
+                Long memberId = (Long) session.getAttributes().get(SessionConst.SESSION_ID);
+                chatRoomService.connectChatRoomSocket(memberId, enterRoomRequest.getChatRoomId());
 
                 break;
             default:

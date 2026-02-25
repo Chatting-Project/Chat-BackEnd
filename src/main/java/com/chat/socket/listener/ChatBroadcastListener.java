@@ -2,7 +2,9 @@ package com.chat.socket.listener;
 
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
+import com.chat.socket.event.PublishEnterRoomEvent;
 import com.chat.socket.event.PublishMessageEvent;
+import com.chat.socket.manager.ChatRoomManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,6 +19,7 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class ChatBroadcastListener {
 
+    private final ChatRoomManager chatRoomManager;
     private final ObjectMapper objectMapper;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -29,5 +32,10 @@ public class ChatBroadcastListener {
         } catch (IOException e) {
             throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
         }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void publishEventRoomToSessions(PublishEnterRoomEvent event) {
+        chatRoomManager.broadcastEnterChatRoom(event.getChatRoomId(), event.getEnterChatRoom());
     }
 }

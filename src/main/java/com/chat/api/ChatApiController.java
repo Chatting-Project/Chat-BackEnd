@@ -1,6 +1,5 @@
 package com.chat.api;
 
-import com.chat.service.ChatRoomService;
 import com.chat.utils.consts.SessionConst;
 import com.chat.service.ChatService;
 import com.chat.service.dtos.ChatHistory;
@@ -20,7 +19,6 @@ import java.util.List;
 public class ChatApiController {
 
     private final ChatService chatService;
-    private final ChatRoomService chatRoomService;
 
     @GetMapping("/api/chats")
     public Result<List<ChatHistory>> chatHistory(@RequestParam("chatRoomId") Long chatRoomId,
@@ -28,9 +26,6 @@ public class ChatApiController {
 
         // 채팅 내역 조회
         List<ChatHistory> chatHistory = chatService.findChatHistory(chatRoomId, loginMemberId);
-
-        // 채팅 소켓 연결
-        chatRoomService.connectChatRoomSocket(loginMemberId, chatRoomId);
 
         return Result
                 .<List<ChatHistory> >builder()

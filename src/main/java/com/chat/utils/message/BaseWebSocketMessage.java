@@ -1,6 +1,7 @@
 package com.chat.utils.message;
 
 import com.chat.service.dtos.chat.EnterChatRoom;
+import com.chat.service.dtos.chat.EnterRoomRequest;
 import com.chat.service.dtos.chat.SendChat;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -22,6 +23,7 @@ import lombok.experimental.SuperBuilder;
         @JsonSubTypes.Type(value = SendChat.class, name = "CHAT_MESSAGE"),
         @JsonSubTypes.Type(value = EnterChatRoom.class, name = "CHAT_ENTER"), // Enum 이름과 동일하게
         @JsonSubTypes.Type(value = UpdateChatRoom.class, name = "UPDATE_CHAT_ROOM"),
+        @JsonSubTypes.Type(value = EnterRoomRequest.class, name = "ENTER_ROOM"),
         // 다른 타입이 있다면 여기에 추가
         @JsonSubTypes.Type(value = BaseWebSocketMessage.class, name = "DEFAULT") // 알 수 없는 타입 처리
 })
