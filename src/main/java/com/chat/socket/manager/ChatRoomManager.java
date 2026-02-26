@@ -10,13 +10,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,6 +44,10 @@ public class ChatRoomManager {
             String enterChatRoomMessage = objectMapper.writeValueAsString(enterChatRoom);
             Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
 
+            if (sessions == null || sessions.isEmpty()) {
+                return;
+            }
+
             for (WebSocketSession session : sessions) {
                 session.sendMessage(new TextMessage(enterChatRoomMessage));
             }
@@ -67,42 +68,33 @@ public class ChatRoomManager {
         return memberToRoomsMap.get(memberId);
     }
 
-    public void removeChatRoomSession(Long chatRoomId, Long memberId) {
+    public boolean removeChatRoomSession(Long chatRoomId, WebSocketSession closingSession) {
         Set<WebSocketSession> sessions = chatRooms.get(chatRoomId);
         if (sessions == null) {
-            return;
+            return false;
         }
 
-        List<WebSocketSession> toRemove = new ArrayList<>();
-        for (WebSocketSession session : sessions) {
-            Object userIdObj = session.getAttributes().get(SessionConst.SESSION_ID);
-            if (userIdObj instanceof Long && ((Long) userIdObj).equals(memberId)) {
-                toRemove.add(session);
-            }
-        }
-        sessions.removeAll(toRemove);
+        sessions.remove(closingSession);
 
-        for (WebSocketSession session : toRemove) {
-            if (session.isOpen()) {
-                try {
-                    session.close(CloseStatus.NORMAL);
-                } catch (IOException e) {
-                    log.warn("Failed to close WebSocket session for memberId={} in chatRoomId={}", memberId, chatRoomId, e);
-                }
-            }
-        }
+        Long memberId = (Long) closingSession.getAttributes().get(SessionConst.SESSION_ID);
+        // 이 방에 같은 memberId의 다른 세션이 남아있는지 확인
+        boolean memberStillInRoom = sessions.stream()
+                .anyMatch(s ->
+                        memberId.equals(s.getAttributes().get(SessionConst.SESSION_ID)));
 
-        Set<Long> rooms = memberToRoomsMap.get(memberId);
-        if (rooms != null) {
-            rooms.remove(chatRoomId);
-            if (rooms.isEmpty()) {
-                memberToRoomsMap.remove(memberId);
+        if (!memberStillInRoom) {
+            Set<Long> rooms = memberToRoomsMap.get(memberId);
+            if (rooms != null) {
+                rooms.remove(chatRoomId);
+                if (rooms.isEmpty()) memberToRoomsMap.remove(memberId);
             }
         }
 
         if (sessions.isEmpty()) {
             chatRooms.remove(chatRoomId);
         }
+
+        return !memberStillInRoom;
     }
 
     @VisibleForTesting

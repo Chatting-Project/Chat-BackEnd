@@ -25,6 +25,7 @@ public class ChatHandshakeInterceptor implements HandshakeInterceptor {
                 Long loginMemberId = (Long) httpSession.getAttribute(SessionConst.SESSION_ID); // 세션에서 사용자 정보 가져오기
                 if (loginMemberId != null) {
                     attributes.put(SessionConst.SESSION_ID, loginMemberId); // WebSocketSession의 attributes에 저장
+                    attributes.put(SessionConst.HTTP_SESSION_ID, httpSession.getId());
                 }
             } else {
                 return false;

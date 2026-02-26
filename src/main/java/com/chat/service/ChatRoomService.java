@@ -31,6 +31,7 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -59,13 +60,11 @@ public class ChatRoomService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public void connectChatRoomSocket(Long memberId, Long chatRoomId) {
+    public void connectChatRoomSocket(WebSocketSession session, Long memberId, Long chatRoomId) {
 
         IdValidator.requireIds(memberId, chatRoomId);
 
-        WebSocketSession webSocketSession = websocketSessionManager.getSessionBy(memberId);
         chatRoomParticipantService.enterChatRoom(chatRoomId, memberId);
-        chatRoomManager.addSessionToRoom(webSocketSession, chatRoomId);
 
         LastChatRead lastChatRead = chatReadService.findLastChatBy(memberId, chatRoomId);
         EnterChatRoom enterChatRoom = EnterChatRoom.builder()
@@ -73,7 +72,7 @@ public class ChatRoomService {
                 .lastReadChatId(lastChatRead != null ? lastChatRead.getLastChatReadId() : null)
                 .memberId(lastChatRead != null ? lastChatRead.getMemberId() : null)
                 .build();
-        publisher.publishEvent(new PublishEnterRoomEvent(chatRoomId, enterChatRoom));
+        publisher.publishEvent(new PublishEnterRoomEvent(session, chatRoomId, enterChatRoom));
     }
 
     @Transactional
@@ -99,9 +98,9 @@ public class ChatRoomService {
         List<Long> memberIdsInChatRoom = memberRepository.findMemberIdsIn(chatRoomId);
         for (Long memberId : memberIdsInChatRoom) {
 
-            WebSocketSession session = websocketSessionManager.getSessionBy(memberId);
-            if (session == null) {
-                return;
+            Collection<WebSocketSession> sessions = websocketSessionManager.getSessionBy(memberId);
+            if (sessions.isEmpty()) {
+                continue;
             }
 
             Chat lastChat = chatRepository
@@ -122,7 +121,9 @@ public class ChatRoomService {
 
             try {
                 String updateChatRoomString = objectMapper.writeValueAsString(updateChatRoom);
-                session.sendMessage(new TextMessage(updateChatRoomString));
+                for (WebSocketSession session : sessions) {
+                    session.sendMessage(new TextMessage(updateChatRoomString));
+                }
             } catch (IOException e) {
                 throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
             }

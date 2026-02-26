@@ -15,8 +15,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.socket.WebSocketSession;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -84,19 +86,22 @@ public class MemberService {
         return getMembersResponses;
     }
 
-    public void removeSession(Long memberId) {
+    public void removeSession(Long memberId, WebSocketSession closingSession) {
 
         Set<Long> chatRoomIds = chatRoomManager.getChatRoomIdsBy(memberId);
         if (chatRoomIds == null || chatRoomIds.isEmpty()) {
-            websocketSessionManager.removeSession(memberId);
+            websocketSessionManager.removeSession(memberId, closingSession);
             return;
         }
 
-        for (Long chatRoomId : chatRoomIds) {
-            chatRoomParticipantService.leaveChatRoom(chatRoomId, memberId);
-            chatRoomManager.removeChatRoomSession(chatRoomId, memberId);
+        Set<Long> snapshot = new HashSet<>(chatRoomIds);  // live Set 순회 방지
+        for (Long chatRoomId : snapshot) {
+            boolean memberLeftRoom = chatRoomManager.removeChatRoomSession(chatRoomId, closingSession);
+            if (memberLeftRoom) {
+                chatRoomParticipantService.leaveChatRoom(chatRoomId, memberId);
+            }
         }
 
-        websocketSessionManager.removeSession(memberId);
+        websocketSessionManager.removeSession(memberId, closingSession);
     }
 }

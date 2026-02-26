@@ -63,7 +63,7 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
             case ENTER_ROOM:
                 EnterRoomRequest enterRoomRequest = (EnterRoomRequest) baseMessage;
                 Long memberId = (Long) session.getAttributes().get(SessionConst.SESSION_ID);
-                chatRoomService.connectChatRoomSocket(memberId, enterRoomRequest.getChatRoomId());
+                chatRoomService.connectChatRoomSocket(session, memberId, enterRoomRequest.getChatRoomId());
 
                 break;
             default:
@@ -78,7 +78,7 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
 
         log.info("close Websocket member : {}", loginMemberId);
 
-        memberService.removeSession(loginMemberId);
+        memberService.removeSession(loginMemberId, session);
     }
 
 }

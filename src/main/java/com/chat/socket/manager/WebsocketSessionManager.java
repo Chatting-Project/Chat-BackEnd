@@ -4,11 +4,12 @@ import com.chat.utils.annotation.VisibleForTesting;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -17,30 +18,25 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WebsocketSessionManager {
 
     // 소켓에 연결된 사용자 정보
-    private final Map<Long, WebSocketSession> activeMemberSessions = new ConcurrentHashMap<>();
+    private final Map<Long, Set<WebSocketSession>> activeMemberSessions = new ConcurrentHashMap<>();
 
     public void addSession(Long memberId, WebSocketSession session) {
-        activeMemberSessions.put(memberId, session);
+        activeMemberSessions
+                .computeIfAbsent(memberId, k -> ConcurrentHashMap.newKeySet())
+                .add(session);
     }
 
-    public WebSocketSession getSessionBy(Long memberId) {
-        return activeMemberSessions.get(memberId);
+    public Collection<WebSocketSession> getSessionBy(Long memberId) {
+        Set<WebSocketSession> webSocketSessions = activeMemberSessions.get(memberId);
+        return webSocketSessions != null ? webSocketSessions : Collections.emptySet();
     }
 
-    public void removeSession(Long memberId) {
-        WebSocketSession session = activeMemberSessions.remove(memberId);
+    public void removeSession(Long memberId, WebSocketSession session) {
 
-        if (session == null) {
-            return;
-        }
-
-        if (session.isOpen()) {
-            try {
-                session.close(CloseStatus.NORMAL);
-            } catch (IOException e) {
-                log.warn("Failed to close WebSocket session for memberId={}", memberId, e);
-            }
-        }
+        activeMemberSessions.computeIfPresent(memberId, (k, sessions) -> {
+            sessions.remove(session);
+            return sessions.isEmpty() ? null : sessions;
+        });
     }
 
     @VisibleForTesting
