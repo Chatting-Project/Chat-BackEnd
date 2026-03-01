@@ -1,10 +1,15 @@
 package com.chat.service;
 
 import com.chat.api.response.chatroom.ChatRoomsResponse;
+import com.chat.api.response.chatroom.OpponentResponse;
+import com.chat.entity.Chat;
+import com.chat.entity.ChatRead;
 import com.chat.entity.ChatRoom;
 import com.chat.entity.ChatRoomParticipant;
 import com.chat.entity.Member;
 import com.chat.fixture.TestDataFixture;
+import com.chat.repository.ChatReadRepository;
+import com.chat.repository.ChatRepository;
 import com.chat.repository.ChatRoomParticipantRepository;
 import com.chat.repository.ChatRoomRepository;
 import com.chat.service.dtos.SaveChatRoomDTO;
@@ -32,6 +37,10 @@ class ChatRoomServiceTest {
     private ChatRoomRepository chatRoomRepository;
     @Autowired
     private ChatRoomParticipantRepository chatRoomParticipantRepository;
+    @Autowired
+    private ChatRepository chatRepository;
+    @Autowired
+    private ChatReadRepository chatReadRepository;
     @Autowired
     private TestDataFixture fixture;
 
@@ -107,7 +116,82 @@ class ChatRoomServiceTest {
         assertThat(chatRooms).hasSize(3);
     }
 
-    // todo 채팅, 안읽은 채팅 수 테스트 필요
+    @Test
+    @DisplayName("메시지가 없는 채팅방 조회 시 lastMessage 는 null, unReadCount 는 0 이다.")
+    void findChatRooms_withNoMessagesTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        fixture.savedChatRoomBy("title", List.of(me, other));
+
+        // when
+        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+
+        // then
+        assertThat(chatRooms).hasSize(1);
+        assertThat(chatRooms.get(0).getLastMessage()).isNull();
+        assertThat(chatRooms.get(0).getUnReadCount()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("채팅방 목록 조회 시 가장 마지막 메시지 정보가 포함된다.")
+    void findChatRooms_lastMessageTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, other));
+
+        fixture.savedSimpleChat("first message", other, chatRoom);
+        fixture.savedSimpleChat("last message", other, chatRoom);
+
+        // when
+        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+
+        // then
+        assertThat(chatRooms).hasSize(1);
+        assertThat(chatRooms.get(0).getLastMessage()).isEqualTo("last message");
+        assertThat(chatRooms.get(0).getCreatedDate()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("채팅방 목록 조회 시 읽지 않은 메시지 수가 포함된다.")
+    void findChatRooms_unReadCountTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, other));
+
+        Chat firstChat = fixture.savedSimpleChat("msg1", other, chatRoom);
+        Chat secondChat = fixture.savedSimpleChat("msg2", other, chatRoom);
+
+        chatReadRepository.save(new ChatRead(false, me, firstChat));
+        chatReadRepository.save(new ChatRead(false, me, secondChat));
+
+        // when
+        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+
+        // then
+        assertThat(chatRooms).hasSize(1);
+        assertThat(chatRooms.get(0).getUnReadCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("채팅방 목록 조회 시 본인을 제외한 상대방 정보가 포함된다.")
+    void findChatRooms_opponentsTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        fixture.savedChatRoomBy("title", List.of(me, other));
+
+        // when
+        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+
+        // then
+        assertThat(chatRooms).hasSize(1);
+        List<OpponentResponse> opponents = chatRooms.get(0).getOpponents();
+        assertThat(opponents).hasSize(1);
+        assertThat(opponents.get(0).getOpponentId()).isEqualTo(other.getId());
+    }
 
     // todo connect & broadCastMessage 테스트 필요
 

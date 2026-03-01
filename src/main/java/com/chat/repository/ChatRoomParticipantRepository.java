@@ -23,14 +23,21 @@ public interface ChatRoomParticipantRepository extends JpaRepository<ChatRoomPar
 
     @Query(value = "SELECT crp" +
             " FROM ChatRoomParticipant crp" +
+            " JOIN FETCH crp.chatRoom" +
             " WHERE crp.member.id = :memberId")
-    List<ChatRoomParticipant> findAllBy(@Param("memberId") Long memberId);
+    List<ChatRoomParticipant> findAllFetchChatRoomBy(@Param("memberId") Long memberId);
 
     @Query(value = "SELECT crp" +
             " FROM ChatRoomParticipant crp" +
             " JOIN FETCH crp.member" +
             " WHERE crp.chatRoom.id = :chatRoomId")
     List<ChatRoomParticipant> findAllFetchMemberBy(@Param("chatRoomId") Long chatRoomId);
+
+    @Query(value = "SELECT crp" +
+            " FROM ChatRoomParticipant crp" +
+            " JOIN FETCH crp.member" +
+            " WHERE crp.chatRoom.id IN :chatRoomIds")
+    List<ChatRoomParticipant> findAllFetchMemberBy(@Param("chatRoomIds") List<Long> chatRoomIds);
 
     @Query("SELECT crp" +
             " FROM ChatRoomParticipant crp" +

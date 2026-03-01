@@ -6,6 +6,7 @@ import com.chat.entity.*;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.repository.*;
+import com.chat.repository.dtos.ChatRoomUnreadCount;
 import com.chat.service.dtos.LastChatRead;
 import com.chat.service.dtos.SaveChatData;
 import com.chat.service.dtos.SaveChatRoomDTO;
@@ -30,10 +31,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -225,47 +223,65 @@ public class ChatRoomService {
 
     private List<ChatRoomsResponse> createChatRoomsResponse(Long memberId) {
 
-        List<ChatRoomsResponse> chatRoomsResponses = new ArrayList<>();
-        Pageable limitOne = createLimitOne();
+        // 참여 채팅방 목록 조회
+        List<ChatRoomParticipant> participants
+                = chatRoomParticipantRepository.findAllFetchChatRoomBy(memberId);
 
-        List<ChatRoomParticipant> chatRoomParticipants
-                = chatRoomParticipantRepository.findAllBy(memberId);
-        for (ChatRoomParticipant findChatRoomParticipant : chatRoomParticipants) {
-
-            ChatRoom chatRoom = findChatRoomParticipant.getChatRoom();
-            Long chatRoomId = chatRoom.getId();
-
-            Chat lastChat = chatRepository
-                    .findLastChatBy(chatRoomId, limitOne)
-                    .stream()
-                    .findFirst()
-                    .orElse(null);
-
-            Long unReadCount
-                    = chatReadRepository.findUnReadCountBy(chatRoomId, memberId);
-
-            List<ChatRoomParticipant> findChatRoomParticipantsByChatRoom
-                    = chatRoomParticipantRepository.findAllFetchMemberBy(chatRoomId);
-
-            List<OpponentResponse> opponents = createOpponentResponses(findChatRoomParticipantsByChatRoom, memberId);
-
-            ChatRoomsResponse.ChatRoomsResponseBuilder chatRoomsResponseBuilder = ChatRoomsResponse
-                    .builder()
-                    .title(chatRoom.getTitle())
-                    .chatRoomId(chatRoomId)
-                    .lastMessage(lastChat != null ? lastChat.getMessage() : null)
-                    .createdDate(lastChat != null ? lastChat.getCreatedDate() : null)
-                    .unReadCount(unReadCount)
-                    .opponents(opponents);
-
-            chatRoomsResponses.add(chatRoomsResponseBuilder.build());
+        if (participants.isEmpty()) {
+            return List.of();
         }
 
-        return chatRoomsResponses;
-    }
+        List<Long> chatRoomIds = participants
+                .stream()
+                .map(crp -> crp.getChatRoom().getId())
+                .toList();
 
-    private Pageable createLimitOne() {
-        return PageRequest.of(0, 1);
+        // 채팅방별 마지막 메시지 일괄 조회
+        Map<Long, Chat> lastChatMap = chatRepository
+                .findLastChatsBy(chatRoomIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        c -> c.getChatRoom().getId(),
+                        c -> c
+                ));
+
+        // 채팅방별 안 읽은 메시지 수 일괄 조회
+        Map<Long, Long> unReadCountMap = chatReadRepository
+                .findChatRoomUnreadCountsBy(chatRoomIds, memberId)
+                .stream()
+                .collect(Collectors.toMap(
+                        ChatRoomUnreadCount::getChatRoomId,
+                        ChatRoomUnreadCount::getUnreadCount
+                ));
+
+        // 채팅방별 참여자 목록 일괄 조회
+        Map<Long, List<ChatRoomParticipant>> participantsByRoom = chatRoomParticipantRepository
+                .findAllFetchMemberBy(chatRoomIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        crp -> crp.getChatRoom().getId()
+                ));
+
+        return participants
+                .stream()
+                .map(crp -> {
+                    Long chatRoomId = crp.getChatRoom().getId();
+                    Chat lastChat = lastChatMap.get(chatRoomId);
+
+                    List<OpponentResponse> opponents = createOpponentResponses(
+                            participantsByRoom.getOrDefault(chatRoomId, List.of()),
+                            memberId);
+
+                    return ChatRoomsResponse.builder()
+                            .chatRoomId(chatRoomId)
+                            .title(crp.getChatRoom().getTitle())
+                            .lastMessage(lastChat != null ? lastChat.getMessage() : null)
+                            .createdDate(lastChat != null ? lastChat.getCreatedDate() : null)
+                            .unReadCount(unReadCountMap.getOrDefault(chatRoomId, 0L))
+                            .opponents(opponents)
+                            .build();
+                })
+                .toList();
     }
 
     private List<OpponentResponse> createOpponentResponses(List<ChatRoomParticipant> chatRoomParticipants, Long memberId) {
@@ -274,5 +290,9 @@ public class ChatRoomService {
                 .filter(member -> !member.getId().equals(memberId))
                 .map(member -> new OpponentResponse(member.getId(), member.getNickname()))
                 .collect(Collectors.toList());
+    }
+
+    private Pageable createLimitOne() {
+        return PageRequest.of(0, 1);
     }
 }

@@ -41,7 +41,7 @@ public class ChatRoomApiController {
     }
 
     @GetMapping("/api/chat/rooms")
-    public Result<List<ChatRoomsResponse>> chtaRooms(@SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+    public Result<List<ChatRoomsResponse>> chatRooms(@SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
 
         List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(loginMemberId);
 
