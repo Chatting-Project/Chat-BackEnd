@@ -44,6 +44,10 @@ public class MemberApiController {
 
         LoginResponse loginResponse = memberService.login(request);
 
+        // 세션 고정(Session Fixation) 방지 : 기존 세션 무효화 후 새로 생성
+        HttpSession old = servletRequest.getSession(false);
+        if (old != null) old.invalidate();
+
         HttpSession session = servletRequest.getSession(true);
         session.setAttribute(SessionConst.SESSION_ID, loginResponse.getMemberId());
 
