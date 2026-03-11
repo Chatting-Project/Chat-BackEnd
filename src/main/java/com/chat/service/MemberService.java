@@ -14,6 +14,7 @@ import com.chat.socket.manager.WebsocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -50,7 +51,7 @@ public class MemberService {
         return memberRepository.save(member).getId();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public LoginResponse login(LoginRequest request) {
         Member findMember = memberRepository.findByUsername(request.getUsername()).orElseThrow(
                 () -> new CustomException(ErrorCode.USERNAME_NOT_MATCH)
