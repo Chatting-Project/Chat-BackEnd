@@ -35,7 +35,7 @@ public class ChatBroadcastListener {
 
         String sendChatMessage;
         try {
-            sendChatMessage = objectMapper.writeValueAsString(event.getSendChat());
+            sendChatMessage = objectMapper.writeValueAsString(event.getBroadcastChat());
         } catch (IOException e) {
             throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
         }

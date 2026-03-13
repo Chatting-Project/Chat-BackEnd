@@ -8,11 +8,13 @@ import java.time.LocalDateTime;
 
 @Getter
 @Builder
-public class UpdateChatRoom {
-
+public class BroadcastChat {
     private final MessageType messageType;
+    private final Long senderId;
+    private final String senderNickname;
     private final Long chatRoomId;
-    private final String lastMessage;
+    private final String message;
+    private final Long chatId;
     private final Long unReadCount;
     private final LocalDateTime createdDate;
 }

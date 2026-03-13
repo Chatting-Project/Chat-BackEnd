@@ -38,7 +38,7 @@ public class ChatService {
         return SaveChatData
                 .builder()
                 .chatId(findChat.getId())
-                .createDate(findChat.getCreatedDate())
+                .createdDate(findChat.getCreatedDate())
                 .unReadCount(unReadcount)
                 .build();
     }

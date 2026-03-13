@@ -10,12 +10,12 @@ public class SaveChatData {
 
     private Long chatId;
     private Long unReadCount;
-    private LocalDateTime createDate;
+    private LocalDateTime createdDate;
 
     @Builder
-    public SaveChatData(Long chatId, Long unReadCount, LocalDateTime createDate) {
+    public SaveChatData(Long chatId, Long unReadCount, LocalDateTime createdDate) {
         this.chatId = chatId;
         this.unReadCount = unReadCount;
-        this.createDate = createDate;
+        this.createdDate = createdDate;
     }
 }
