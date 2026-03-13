@@ -10,16 +10,17 @@ import com.chat.repository.dtos.ChatRoomUnreadCount;
 import com.chat.service.dtos.LastChatRead;
 import com.chat.service.dtos.SaveChatData;
 import com.chat.service.dtos.SaveChatRoomDTO;
+import com.chat.service.dtos.chat.BroadcastChat;
 import com.chat.service.dtos.chat.EnterChatRoom;
 import com.chat.service.dtos.chat.SendChat;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.chat.socket.event.PublishEnterRoomEvent;
 import com.chat.socket.event.PublishMessageEvent;
-import com.chat.socket.manager.ChatRoomManager;
 import com.chat.socket.manager.WebsocketSessionManager;
 import com.chat.utils.message.MessageType;
 import com.chat.utils.valid.IdValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -48,7 +49,6 @@ public class ChatRoomService {
     private final ChatService chatService;
 
     private final WebsocketSessionManager websocketSessionManager;
-    private final ChatRoomManager chatRoomManager;
     private final ObjectMapper objectMapper;
 
     private final ChatRoomRepository chatRoomRepository;
@@ -76,54 +76,82 @@ public class ChatRoomService {
     @Transactional
     public void broadCastMessage(SendChat sendChat) {
         Long chatRoomId = sendChat.getChatRoomId();
-
         Long senderId = sendChat.getSenderId();
-        String message = sendChat.getMessage();
-        Long saveChatId = chatService.saveChat(senderId, chatRoomId, message);
+        Long saveChatId = chatService.saveChat(senderId, chatRoomId, sendChat.getMessage());
 
         SaveChatData chatData = chatService.findChatData(saveChatId);
-        sendChat.updateSavedChat(chatData);
 
-        publisher.publishEvent(new PublishMessageEvent(sendChat, chatRoomId));
+        BroadcastChat broadcastChat = BroadcastChat.builder()
+                .messageType(MessageType.CHAT_MESSAGE)
+                .senderId(sendChat.getSenderId())
+                .senderNickname(sendChat.getSenderNickname())
+                .chatRoomId(sendChat.getChatRoomId())
+                .message(sendChat.getMessage())
+                .chatId(chatData.getChatId())
+                .unReadCount(chatData.getUnReadCount())
+                .createdDate(chatData.getCreatedDate())
+                .build();
+
+        publisher.publishEvent(new PublishMessageEvent(broadcastChat, chatRoomId));
     }
 
     public void broadcastToChatRoomMembers(Long chatRoomId) {
 
-        Pageable limitOne = createLimitOne();
-
         List<Long> memberIdsInChatRoom = memberRepository.findMemberIdsIn(chatRoomId);
+        if (memberIdsInChatRoom.isEmpty()) {
+            return;
+        }
+
+        Chat lastChat = chatRepository.findLastChatBy(chatRoomId, createLimitOne())
+                .stream().findFirst().orElse(null);
+
+        List<UpdateChatRoomEntry> entries = new ArrayList<>();
         for (Long memberId : memberIdsInChatRoom) {
 
             Collection<WebSocketSession> sessions = websocketSessionManager.getSessionBy(memberId);
             if (sessions.isEmpty()) {
                 continue;
             }
-
-            Chat lastChat = chatRepository
-                    .findLastChatBy(chatRoomId, limitOne)
-                    .stream()
-                    .findFirst()
-                    .orElse(null);
             Long unReadCount = chatReadRepository.findUnReadCountBy(chatRoomId, memberId);
 
-            UpdateChatRoom updateChatRoom = UpdateChatRoom
-                    .builder()
+            UpdateChatRoom updateChatRoom = UpdateChatRoom.builder()
                     .messageType(MessageType.UPDATE_CHAT_ROOM)
                     .chatRoomId(chatRoomId)
                     .lastMessage(lastChat != null ? lastChat.getMessage() : null)
                     .createdDate(lastChat != null ? lastChat.getCreatedDate() : null)
                     .unReadCount(unReadCount)
                     .build();
+            entries.add(new UpdateChatRoomEntry(updateChatRoom, sessions));
+        }
 
+        for (UpdateChatRoomEntry entry : entries) {
+
+            String message;
             try {
-                String updateChatRoomString = objectMapper.writeValueAsString(updateChatRoom);
-                for (WebSocketSession session : sessions) {
-                    session.sendMessage(new TextMessage(updateChatRoomString));
-                }
+                message = objectMapper.writeValueAsString(entry.getUpdateChatRoom());
             } catch (IOException e) {
                 throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
             }
+
+            for (WebSocketSession session : entry.getSessions()) {
+                if (!session.isOpen()) {
+                    continue;
+                }
+
+                try {
+                    session.sendMessage(new TextMessage(message));
+                } catch (IOException e) {
+                    log.warn("채팅방 업데이트 전송 실패: session={}", session.getId(), e);
+                }
+            }
         }
+    }
+
+    @Getter
+    @RequiredArgsConstructor
+    private static class UpdateChatRoomEntry {
+        private final UpdateChatRoom updateChatRoom;
+        private final Collection<WebSocketSession> sessions;
     }
 
     @Transactional
