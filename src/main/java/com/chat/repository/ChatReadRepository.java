@@ -3,6 +3,7 @@ package com.chat.repository;
 import com.chat.entity.ChatRead;
 import com.chat.repository.dtos.ChatRoomUnreadCount;
 import com.chat.repository.dtos.ChatUnreadCount;
+import com.chat.repository.dtos.MemberUnreadCount;
 import com.chat.service.dtos.LastChatRead;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -12,16 +13,6 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ChatReadRepository extends JpaRepository<ChatRead, Long> {
-
-    @Query("SELECT COUNT (cre)" +
-            " FROM ChatRead cre" +
-            " JOIN Chat c ON cre.chat.id = c.id" +
-            " JOIN ChatRoom cro ON c.chatRoom.id = cro.id" +
-            " WHERE cro.id = :chatRoomId" +
-            " AND cre.member.id = :memberId" +
-            " AND cre.isRead = false")
-    Long findUnReadCountBy(@Param("chatRoomId") Long chatRoomId,
-                           @Param("memberId") Long memberId);
 
     @Query("SELECT COUNT (cre)" +
             " FROM ChatRead cre" +
@@ -79,4 +70,14 @@ public interface ChatReadRepository extends JpaRepository<ChatRead, Long> {
             " And cr.isRead = false" +
             " group by cr.chat.id")
     List<ChatUnreadCount> countUnreadByChatIds(@Param("chatIds") List<Long> chatIds);
+
+    @Query("SELECT new com.chat.repository.dtos.MemberUnreadCount(cre.member.id, COUNT(cre))" +
+            " FROM ChatRead cre" +
+            " JOIN cre.chat c" +
+            " WHERE c.chatRoom.id = :chatRoomId" +
+            " AND cre.member.id IN :memberIds" +
+            " AND cre.isRead = false" +
+            " GROUP BY cre.member.id")
+    List<MemberUnreadCount> findUnReadCountsBy(@Param("chatRoomId") Long chatRoomId,
+                                                      @Param("memberIds") List<Long> memberIds);
 }

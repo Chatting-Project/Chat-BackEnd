@@ -7,6 +7,7 @@ import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.repository.*;
 import com.chat.repository.dtos.ChatRoomUnreadCount;
+import com.chat.repository.dtos.MemberUnreadCount;
 import com.chat.service.dtos.LastChatRead;
 import com.chat.service.dtos.SaveChatData;
 import com.chat.service.dtos.SaveChatRoomDTO;
@@ -108,6 +109,14 @@ public class ChatRoomService {
         Chat lastChat = chatRepository.findLastChatBy(chatRoomId, createLimitOne())
                 .stream().findFirst().orElse(null);
 
+        Map<Long, Long> unReadCountMap = chatReadRepository
+                .findUnReadCountsBy(chatRoomId, memberIdsInChatRoom)
+                .stream()
+                .collect(Collectors.toMap(
+                        MemberUnreadCount::getMemberId,
+                        MemberUnreadCount::getUnreadCount
+                ));
+
         List<UpdateChatRoomEntry> entries = new ArrayList<>();
         for (Long memberId : memberIdsInChatRoom) {
 
@@ -115,7 +124,7 @@ public class ChatRoomService {
             if (sessions.isEmpty()) {
                 continue;
             }
-            Long unReadCount = chatReadRepository.findUnReadCountBy(chatRoomId, memberId);
+            Long unReadCount = unReadCountMap.getOrDefault(memberId, 0L);
 
             UpdateChatRoom updateChatRoom = UpdateChatRoom.builder()
                     .messageType(MessageType.UPDATE_CHAT_ROOM)

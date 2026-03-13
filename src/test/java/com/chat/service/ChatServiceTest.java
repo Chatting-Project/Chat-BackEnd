@@ -3,6 +3,7 @@ package com.chat.service;
 import com.chat.entity.*;
 import com.chat.fixture.TestDataFixture;
 import com.chat.repository.*;
+import com.chat.repository.dtos.MemberUnreadCount;
 import com.chat.service.dtos.ChatHistory;
 import com.chat.service.dtos.SaveChatData;
 import org.junit.jupiter.api.DisplayName;
@@ -123,15 +124,17 @@ class ChatServiceTest {
         assertThat(firstChat.getSenderId()).isEqualTo(firstMember.getId());
         assertThat(firstChat.getUnReadCount()).isEqualTo(1L);
 
+        // Phase 5: updateUnreadChatReadsToRead 이후 count → firstMember 읽음 제외한 값
         ChatHistory secondChat = chatHistory.get(1);
-        assertThat(secondChat.getUnReadCount()).isEqualTo(2L);
+        assertThat(secondChat.getUnReadCount()).isEqualTo(1L);
 
         ChatHistory thirdChat = chatHistory.get(2);
-        assertThat(thirdChat.getUnReadCount()).isEqualTo(2L);
+        assertThat(thirdChat.getUnReadCount()).isEqualTo(1L);
 
-        Long remainingUnread = chatReadRepository.findUnReadCountBy(chatRoomId,
-                firstMember.getId());
-        assertThat(remainingUnread).isEqualTo(0L);
+        // firstMember의 미읽음이 0인지 확인 — 삭제된 findUnReadCountBy 대신 배치 쿼리 사용
+        List<MemberUnreadCount> remainingUnread = chatReadRepository
+                .findUnReadCountsBy(chatRoomId, List.of(firstMember.getId()));
+        assertThat(remainingUnread).isEmpty();
 
         assertThat(firstChat.getMessage()).isEqualTo("message");
     }

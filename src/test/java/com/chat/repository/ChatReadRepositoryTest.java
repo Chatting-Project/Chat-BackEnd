@@ -7,6 +7,7 @@ import com.chat.entity.Member;
 import com.chat.fixture.TestDataFixture;
 import com.chat.repository.dtos.ChatRoomUnreadCount;
 import com.chat.repository.dtos.ChatUnreadCount;
+import com.chat.repository.dtos.MemberUnreadCount;
 import com.chat.service.dtos.LastChatRead;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,40 +62,6 @@ class ChatReadRepositoryTest {
         assertThat(savedChatRead.getChat()).isEqualTo(savedChat);
     }
     
-    @Test
-    @DisplayName("채팅방에 특정 회원이 읽지 않은 메시지 개수를 조회한다.")
-    void findUnReadCountByChatRoomIdAndMemberIdTest() {
-        String firstUsername = "firstUsername";
-        Member firstMember = createMember(firstUsername);
-        String secondUsername = "secondUsername";
-        Member secondMember = createMember(secondUsername);
-        String thirdUsername = "thirdUsername";
-        Member thirdMember = createMember(thirdUsername);
-
-        String title = "title";
-        ChatRoom chatRoom = createChatRoom(title);
-
-        String message = "message";
-        Chat firstChat = createChat(message, secondMember, chatRoom);
-        Chat secondChat = createChat(message, thirdMember, chatRoom);
-
-        boolean isRead = false;
-        ChatRead firsdChatRead = new ChatRead(isRead, firstMember, firstChat);
-        chatReadRepository.save(firsdChatRead);
-        ChatRead secondChatRead = new ChatRead(isRead, firstMember, secondChat);
-        chatReadRepository.save(secondChatRead);
-
-        isRead = true;
-        ChatRead thirdMemberRead = new ChatRead(isRead, thirdMember, firstChat);
-        chatReadRepository.save(thirdMemberRead);
-
-        // when
-        Long unReadCount = chatReadRepository.findUnReadCountBy(chatRoom.getId(), firstMember.getId());
-
-        // then
-        assertThat(unReadCount).isEqualTo(2L);
-    }
-
     @Test
     @DisplayName("특정 채팅을 읽지 않은 사용자 수를 조회한다.")
     void findUnReadCountByChatIdTest() {
@@ -274,8 +241,9 @@ class ChatReadRepositoryTest {
         chatReadRepository.updateUnreadChatReadsToRead(thirdMember.getId(), chatRoom.getId());
 
         // then
-        Long unReadCount = chatReadRepository.findUnReadCountBy(chatRoom.getId(), thirdMember.getId());
-        assertThat(unReadCount).isZero();
+        List<MemberUnreadCount> unReadCounts = chatReadRepository
+                .findUnReadCountsBy(chatRoom.getId(), List.of(thirdMember.getId()));
+        assertThat(unReadCounts).isEmpty();
     }
 
     @Test
@@ -320,6 +288,66 @@ class ChatReadRepositoryTest {
         assertThat(unreadCountMap.get(thirdChat.getId())).isEqualTo(2L);
     }
     
+    @Test
+    @DisplayName("채팅방 멤버별 미읽음 수를 한 번에 일괄 조회한다.")
+    void findUnReadCountsByMembersTest() {
+        // given
+        Member first = createMember("first");
+        Member second = createMember("second");
+        Member third = createMember("third");
+
+        ChatRoom chatRoom = createChatRoom("title");
+
+        Chat firstChat = createChat("msg1", first, chatRoom);
+        Chat secondChat = createChat("msg2", first, chatRoom);
+
+        // first: 모두 읽음
+        chatReadRepository.save(new ChatRead(true, first, firstChat));
+        chatReadRepository.save(new ChatRead(true, first, secondChat));
+
+        // second: 2개 미읽음
+        chatReadRepository.save(new ChatRead(false, second, firstChat));
+        chatReadRepository.save(new ChatRead(false, second, secondChat));
+
+        // third: 1개 미읽음
+        chatReadRepository.save(new ChatRead(true, third, firstChat));
+        chatReadRepository.save(new ChatRead(false, third, secondChat));
+
+        // when
+        List<MemberUnreadCount> result = chatReadRepository
+                .findUnReadCountsBy(chatRoom.getId(), List.of(first.getId(), second.getId(), third.getId()));
+
+        // then
+        Map<Long, Long> unreadMap = result.stream()
+                .collect(Collectors.toMap(MemberUnreadCount::getMemberId, MemberUnreadCount::getUnreadCount));
+
+        // 미읽음 없는 first는 결과에 포함되지 않음
+        assertThat(unreadMap).doesNotContainKey(first.getId());
+        assertThat(unreadMap.get(second.getId())).isEqualTo(2L);
+        assertThat(unreadMap.get(third.getId())).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("미읽음 메시지가 없는 멤버는 일괄 조회 결과에 포함되지 않는다.")
+    void findUnReadCountsBy_allReadMemberNotIncludedTest() {
+        // given
+        Member first = createMember("first");
+        Member second = createMember("second");
+
+        ChatRoom chatRoom = createChatRoom("title");
+        Chat chat = createChat("msg", first, chatRoom);
+
+        chatReadRepository.save(new ChatRead(true, first, chat));
+        chatReadRepository.save(new ChatRead(true, second, chat));
+
+        // when
+        List<MemberUnreadCount> result = chatReadRepository
+                .findUnReadCountsBy(chatRoom.getId(), List.of(first.getId(), second.getId()));
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
     @Test
     @DisplayName("여러 채팅방의 읽지 않은 메시지 수를 회원별로 일괄 조회한다.")
     void findChatRoomUnreadCountsByTest() {
