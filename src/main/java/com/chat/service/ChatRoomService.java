@@ -74,18 +74,21 @@ public class ChatRoomService {
     }
 
     @Transactional
-    public void broadCastMessage(SendChat sendChat) {
+    public void broadCastMessage(Long memberId, SendChat sendChat) {
         Long chatRoomId = sendChat.getChatRoomId();
-        Long senderId = sendChat.getSenderId();
-        Long saveChatId = chatService.saveChat(senderId, chatRoomId, sendChat.getMessage());
+        Long saveChatId = chatService.saveChat(memberId, chatRoomId, sendChat.getMessage());
+
+        Member sender = memberRepository.findById(memberId).orElseThrow(
+                () -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)
+        );
 
         SaveChatData chatData = chatService.findChatData(saveChatId);
 
         BroadcastChat broadcastChat = BroadcastChat.builder()
                 .messageType(MessageType.CHAT_MESSAGE)
-                .senderId(sendChat.getSenderId())
-                .senderNickname(sendChat.getSenderNickname())
-                .chatRoomId(sendChat.getChatRoomId())
+                .senderId(memberId)
+                .senderNickname(sender.getNickname())
+                .chatRoomId(chatRoomId)
                 .message(sendChat.getMessage())
                 .chatId(chatData.getChatId())
                 .unReadCount(chatData.getUnReadCount())

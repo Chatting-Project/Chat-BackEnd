@@ -155,14 +155,12 @@ public class SimpleChatRoomServiceSocketTest {
         SendChat sendChat = SendChat
                 .builder()
                 .messageType(MessageType.CHAT_MESSAGE)
-                .senderId(firstMemberId)
-                .senderNickname(firstMember.getNickname())
                 .chatRoomId(chatRoomId)
                 .message(message)
                 .build();
 
         // when
-        chatRoomService.broadCastMessage(sendChat);
+        chatRoomService.broadCastMessage(firstMemberId, sendChat);
 
         // then: CHAT_MESSAGE가 second에 도착할 때까지 대기 (latch는 CHAT_ENTER 단계에서 이미 소진됨)
         long deadline = System.currentTimeMillis() + 3000;

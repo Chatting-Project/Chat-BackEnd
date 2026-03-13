@@ -10,8 +10,6 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 public class SendChat extends BaseWebSocketMessage {
 
-    private Long senderId;
-    private String senderNickname;
     private Long chatRoomId;
     private String message;
 }

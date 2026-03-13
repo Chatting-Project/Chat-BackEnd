@@ -186,14 +186,12 @@ public class ChatRoomServiceSocketTest {
         SendChat sendChat = SendChat
                 .builder()
                 .messageType(MessageType.CHAT_MESSAGE)
-                .senderId(firstId)
-                .senderNickname(first.getNickname())
                 .chatRoomId(chatRoomId)
                 .message(message)
                 .build();
 
         // when
-        chatRoomService.broadCastMessage(sendChat);
+        chatRoomService.broadCastMessage(firstId, sendChat);
 
         // then: CHAT_MESSAGE가 second에 도착할 때까지 대기 (latch는 CHAT_ENTER 단계에서 이미 소진됨)
         long deadline = System.currentTimeMillis() + 3000;
@@ -208,11 +206,73 @@ public class ChatRoomServiceSocketTest {
         assertThat(node.get("messageType").asText()).isEqualTo("CHAT_MESSAGE");
         assertThat(node.get("message").asText()).isEqualTo(message);
         assertThat(node.get("senderId").asLong()).isEqualTo(firstId);
+        assertThat(node.get("senderNickname").asText()).isEqualTo(first.getNickname());
         assertThat(node.get("chatId").isNull()).isFalse();
         assertThat(node.get("unReadCount").isNull()).isFalse();
         Long chatId = node.get("chatId").asLong();
         Chat findChat = chatRepository.findById(chatId).get();
         assertThat(findChat.getMessage()).isEqualTo(message);
+    }
+
+    @Test
+    @DisplayName("broadCastMessage는 senderId와 senderNickname을 서버 세션과 DB 기준으로 설정한다.")
+    void broadCastMessage_senderIsFromSessionAndDB() throws ExecutionException, InterruptedException, JsonProcessingException {
+        // given
+        String firstUsername = "first";
+        Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
+        Long firstId = first.getId();
+
+        String secondUsername = "second";
+        Member second = memberFixture.saveEncryptPasswordBy(secondUsername);
+        Long secondId = second.getId();
+
+        List<Member> participants = new ArrayList<>();
+        participants.add(first);
+        participants.add(second);
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
+        Long chatRoomId = chatRoom.getId();
+
+        CountDownLatch latch = new CountDownLatch(2);
+        List<String> firstMessages = new ArrayList<>();
+        String firstJSessionId = memberFixture.loginRequestBy(firstUsername, port);
+        socketFixture.connectSocket(firstJSessionId, firstId, port, firstMessages, latch);
+
+        List<String> secondMessages = new ArrayList<>();
+        String secondJSessionId = memberFixture.loginRequestBy(secondUsername, port);
+        socketFixture.connectSocket(secondJSessionId, secondId, port, secondMessages, latch);
+
+        WebSocketSession firstServerSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
+        chatRoomService.connectChatRoomSocket(firstServerSession, firstId, chatRoomId);
+        WebSocketSession secondServerSession = websocketSessionManager.getSessionBy(secondId).iterator().next();
+        chatRoomService.connectChatRoomSocket(secondServerSession, secondId, chatRoomId);
+
+        // SendChat에 chatRoomId, message만 포함 — senderId, senderNickname 없음
+        SendChat sendChat = SendChat
+                .builder()
+                .messageType(MessageType.CHAT_MESSAGE)
+                .chatRoomId(chatRoomId)
+                .message("hello")
+                .build();
+
+        // when: loginMemberId = firstId (세션 기준값)
+        chatRoomService.broadCastMessage(firstId, sendChat);
+
+        // then
+        long deadline = System.currentTimeMillis() + 3000;
+        while (secondMessages.size() < 2 && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+
+        JsonNode node = objectMapper.readTree(secondMessages.get(1));
+
+        // senderId는 파라미터로 전달된 firstId (세션 값)
+        assertThat(node.get("senderId").asLong()).isEqualTo(firstId);
+        // senderNickname은 DB에서 조회된 값
+        assertThat(node.get("senderNickname").asText()).isEqualTo(first.getNickname());
+        // Chat이 DB에 firstId 기준으로 저장되었는지 확인
+        Long savedChatId = node.get("chatId").asLong();
+        Chat savedChat = chatRepository.findById(savedChatId).orElseThrow();
+        assertThat(savedChat.getMember().getId()).isEqualTo(firstId);
     }
 
     @Test

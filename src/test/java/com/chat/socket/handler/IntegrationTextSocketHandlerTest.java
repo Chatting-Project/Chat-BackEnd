@@ -141,8 +141,6 @@ class IntegrationTextSocketHandlerTest {
         SendChat sendChat = SendChat
                 .builder()
                 .messageType(MessageType.CHAT_MESSAGE)
-                .senderId(memberId)
-                .senderNickname("nickname")
                 .chatRoomId(chatRoomId)
                 .message("message")
                 .build();
