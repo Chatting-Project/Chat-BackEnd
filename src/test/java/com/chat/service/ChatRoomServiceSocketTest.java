@@ -68,8 +68,8 @@ public class ChatRoomServiceSocketTest {
     }
 
     @Test
-    @DisplayName("채팅 데이터가 없는 채팅방 소켓에 연결한다.")
-    void connectChatRoomSocketWithoutChatDataTest() throws ExecutionException, InterruptedException, JsonProcessingException {
+    @DisplayName("채팅 데이터가 없는 채팅방 소켓에 연결하면 세션이 방에 등록된다.")
+    void connectChatRoomSocketWithoutChatDataTest() throws ExecutionException, InterruptedException {
         // given
         String username = "username";
         Member member = memberFixture.saveEncryptPasswordBy(username);
@@ -83,27 +83,22 @@ public class ChatRoomServiceSocketTest {
         String JSESSIONID = memberFixture.loginRequestBy(username, port);
 
         CountDownLatch latch = new CountDownLatch(1);
-        List<String> recievedMessgaes = new ArrayList<>();
-        socketFixture.connectSocket(JSESSIONID, memberId, port, recievedMessgaes, latch);
+        List<String> receivedMessages = new ArrayList<>();
+        socketFixture.connectSocket(JSESSIONID, memberId, port, receivedMessages, latch);
 
         // when
         WebSocketSession serverSession = websocketSessionManager.getSessionBy(memberId).iterator().next();
         chatRoomService.connectChatRoomSocket(serverSession, memberId, chatRoomId);
 
-        // then
-        latch.await(3, TimeUnit.SECONDS);
-        String payload = recievedMessgaes.get(0);
-        JsonNode node = objectMapper.readTree(payload);
-        assertThat(node.get("messageType").asText()).isEqualTo("CHAT_ENTER");
-        // Phase 3: memberId는 항상 파라미터에서 직접 설정되므로 null이 아니라 실제 memberId 값
-        assertThat(node.get("memberId").asLong()).isEqualTo(memberId);
-        // 채팅 데이터가 없으므로 lastReadChatId는 null
-        assertThat(node.get("lastReadChatId").isNull()).isTrue();
+        // then: CHAT_ENTER를 전송하지 않으므로 메시지는 없고 세션만 등록됨
+        Thread.sleep(500);
+        assertThat(receivedMessages).isEmpty();
+        assertThat(chatRoomManager.getWebSocketSessionBy(chatRoomId)).contains(serverSession);
     }
 
     @Test
-    @DisplayName("채팅 데이터가 존재하는 채팅방 소켓에 연결한다.")
-    void connectChatRoomSocketWithChatDataTest() throws ExecutionException, InterruptedException, JsonProcessingException {
+    @DisplayName("채팅 데이터가 존재하는 채팅방 소켓에 연결하면 세션이 방에 등록된다.")
+    void connectChatRoomSocketWithChatDataTest() throws ExecutionException, InterruptedException {
         // given
         String firstUsername = "first";
         Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
@@ -120,27 +115,22 @@ public class ChatRoomServiceSocketTest {
         ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
         Long chatRoomId = chatRoom.getId();
 
-        Long firstChatId = chatService.saveChat(firstId, chatRoomId, "firstChat");
+        chatService.saveChat(firstId, chatRoomId, "firstChat");
         chatService.saveChat(secondId, chatRoomId, "secondChat");
 
         String JSESSIONID = memberFixture.loginRequestBy("first", port);
 
         CountDownLatch latch = new CountDownLatch(1);
-        List<String> recievedMessgaes = new ArrayList<>();
-        socketFixture.connectSocket(JSESSIONID, firstId, port, recievedMessgaes, latch);
+        List<String> receivedMessages = new ArrayList<>();
+        socketFixture.connectSocket(JSESSIONID, firstId, port, receivedMessages, latch);
 
         // when
         WebSocketSession serverSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
         chatRoomService.connectChatRoomSocket(serverSession, firstId, chatRoomId);
 
-        // then
-        latch.await(3, TimeUnit.SECONDS);
-        String payload = recievedMessgaes.get(0);
-        JsonNode node = objectMapper.readTree(payload);
-        assertThat(node.get("messageType").asText()).isEqualTo("CHAT_ENTER");
-        assertThat(node.get("memberId").asLong()).isEqualTo(firstId);
-        assertThat(node.get("lastReadChatId").asLong()).isEqualTo(firstChatId);
-
+        // then: CHAT_ENTER 미전송, 세션 등록 여부만 확인
+        Thread.sleep(500);
+        assertThat(receivedMessages).isEmpty();
         Set<WebSocketSession> webSocketSessions = chatRoomManager.getWebSocketSessionBy(chatRoomId);
         assertThat(webSocketSessions).hasSize(1);
         Collection<WebSocketSession> memberSessions = websocketSessionManager.getSessionBy(firstId);
@@ -193,15 +183,14 @@ public class ChatRoomServiceSocketTest {
         // when
         chatRoomService.broadCastMessage(firstId, sendChat);
 
-        // then: CHAT_MESSAGE가 second에 도착할 때까지 대기 (latch는 CHAT_ENTER 단계에서 이미 소진됨)
+        // then: CHAT_MESSAGE가 second에 도착할 때까지 대기
         long deadline = System.currentTimeMillis() + 3000;
-        while (secondMessages.size() < 2 && System.currentTimeMillis() < deadline) {
+        while (secondMessages.isEmpty() && System.currentTimeMillis() < deadline) {
             Thread.sleep(50);
         }
-        assertThat(secondMessages).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(secondMessages).isNotEmpty();
 
-        // 서버는 BroadcastChat DTO를 직렬화해서 전송 (Phase 3)
-        String payload = secondMessages.get(1);
+        String payload = secondMessages.get(0);
         JsonNode node = objectMapper.readTree(payload);
         assertThat(node.get("messageType").asText()).isEqualTo("CHAT_MESSAGE");
         assertThat(node.get("message").asText()).isEqualTo(message);
@@ -259,11 +248,11 @@ public class ChatRoomServiceSocketTest {
 
         // then
         long deadline = System.currentTimeMillis() + 3000;
-        while (secondMessages.size() < 2 && System.currentTimeMillis() < deadline) {
+        while (secondMessages.isEmpty() && System.currentTimeMillis() < deadline) {
             Thread.sleep(50);
         }
 
-        JsonNode node = objectMapper.readTree(secondMessages.get(1));
+        JsonNode node = objectMapper.readTree(secondMessages.get(0));
 
         // senderId는 파라미터로 전달된 firstId (세션 값)
         assertThat(node.get("senderId").asLong()).isEqualTo(firstId);

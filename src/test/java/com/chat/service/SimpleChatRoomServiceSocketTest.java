@@ -35,7 +35,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @AutoConfigureMockMvc
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -111,11 +110,10 @@ public class SimpleChatRoomServiceSocketTest {
         WebSocketSession serverSession = websocketSessionManager.getSessionBy(encryptMemberId).iterator().next();
         chatRoomService.connectChatRoomSocket(serverSession, encryptMemberId, chatRoomId);
 
-        // then
-        boolean messageReceived = latch.await(3, TimeUnit.SECONDS);
-        assertTrue(messageReceived, "EnterChatRoom 메시지를 수신해야 합니다.");
-        String payload = receivedMessages.get(0);
-        assertTrue(payload.contains("\"messageType\":\"CHAT_ENTER\""));
+        // then: CHAT_ENTER 미전송, 세션이 방에 등록되었는지 확인
+        Thread.sleep(500);
+        assertThat(receivedMessages).isEmpty();
+        assertThat(chatRoomManager.getWebSocketSessionBy(chatRoomId)).contains(serverSession);
     }
 
     @Test
@@ -162,15 +160,14 @@ public class SimpleChatRoomServiceSocketTest {
         // when
         chatRoomService.broadCastMessage(firstMemberId, sendChat);
 
-        // then: CHAT_MESSAGE가 second에 도착할 때까지 대기 (latch는 CHAT_ENTER 단계에서 이미 소진됨)
+        // then: CHAT_MESSAGE가 second에 도착할 때까지 대기
         long deadline = System.currentTimeMillis() + 3000;
-        while (secondMessages.size() < 2 && System.currentTimeMillis() < deadline) {
+        while (secondMessages.isEmpty() && System.currentTimeMillis() < deadline) {
             Thread.sleep(50);
         }
-        assertThat(secondMessages).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(secondMessages).isNotEmpty();
 
-        // 서버는 BroadcastChat DTO를 직렬화해서 전송 (Phase 3)
-        String payload = secondMessages.get(1);
+        String payload = secondMessages.get(0);
         JsonNode node = objectMapper.readTree(payload);
         assertThat(payload).isNotEmpty();
         assertThat(node.get("chatId").asLong()).isGreaterThan(0);

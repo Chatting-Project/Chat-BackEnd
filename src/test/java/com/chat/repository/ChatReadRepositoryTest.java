@@ -278,7 +278,7 @@ class ChatReadRepositoryTest {
         Map<Long, Long> unreadCountMap = chatReadRepository.countUnreadByChatIds(chatIds).stream()
                 .collect(Collectors.toMap(
                         ChatUnreadCount::getChatId,
-                        ChatUnreadCount::getUnreadCount
+                        ChatUnreadCount::getUnreadMemberCount
                 ));
 
         // then
@@ -319,7 +319,7 @@ class ChatReadRepositoryTest {
 
         // then
         Map<Long, Long> unreadMap = result.stream()
-                .collect(Collectors.toMap(MemberUnreadCount::getMemberId, MemberUnreadCount::getUnreadCount));
+                .collect(Collectors.toMap(MemberUnreadCount::getMemberId, MemberUnreadCount::getUnreadMemberCount));
 
         // 미읽음 없는 first는 결과에 포함되지 않음
         assertThat(unreadMap).doesNotContainKey(first.getId());
@@ -379,7 +379,7 @@ class ChatReadRepositoryTest {
                 .stream()
                 .collect(Collectors.toMap(
                         ChatRoomUnreadCount::getChatRoomId,
-                        ChatRoomUnreadCount::getUnreadCount
+                        ChatRoomUnreadCount::getUnreadMessageCount
                 ));
 
         // then
@@ -414,7 +414,7 @@ class ChatReadRepositoryTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getChatRoomId()).isEqualTo(roomWithUnread.getId());
-        assertThat(result.get(0).getUnreadCount()).isEqualTo(1L);
+        assertThat(result.get(0).getUnreadMessageCount()).isEqualTo(1L);
     }
 
     private Member createMember(String username) {

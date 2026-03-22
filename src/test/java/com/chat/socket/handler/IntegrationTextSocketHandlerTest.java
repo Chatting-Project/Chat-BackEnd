@@ -124,7 +124,7 @@ class IntegrationTextSocketHandlerTest {
         WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
         headers.add("Cookie", "JSESSIONID=" + JSessionId);
 
-        CountDownLatch latch = new CountDownLatch(3);
+        CountDownLatch latch = new CountDownLatch(2);
         List<String> receivedMessages = new ArrayList<>();
         TestWebSocketHandler handler = new TestWebSocketHandler(memberId, receivedMessages, latch);
 
@@ -149,9 +149,57 @@ class IntegrationTextSocketHandlerTest {
         // when
         session.sendMessage(new TextMessage(chat));
 
-        // then
+        // then: CHAT_ENTER 제거 → CHAT_MESSAGE + UPDATE_CHAT_ROOM = 2개
         latch.await(2, TimeUnit.SECONDS);
-        assertThat(receivedMessages).hasSize(3);
+        assertThat(receivedMessages).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("채팅방에 세션이 등록되지 않은 상태에서 CHAT_MESSAGE를 전송하면 DB에 저장되지 않는다.")
+    void chatMessageBlockedWhenSessionNotInRoomTest() throws ExecutionException, InterruptedException, IOException {
+        // given
+        String username = "username";
+        Member member = memberFixture.saveEncryptPasswordBy(username);
+        Long memberId = member.getId();
+
+        List<Member> participants = new ArrayList<>();
+        participants.add(member);
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
+        Long chatRoomId = chatRoom.getId();
+
+        String JSessionId = memberFixture.loginRequestBy(username, port);
+
+        WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+        headers.add("Cookie", "JSESSIONID=" + JSessionId);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        List<String> receivedMessages = new ArrayList<>();
+        TestWebSocketHandler handler = new TestWebSocketHandler(memberId, receivedMessages, latch);
+
+        WebSocketClient client = new StandardWebSocketClient();
+        WebSocketSession session = client.execute(handler,
+                        headers,
+                        URI.create("ws://localhost:" + port + "/ws/chat"))
+                .get();
+
+        // ENTER_ROOM을 보내지 않아 chatRoomManager에 세션이 없는 상태
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        SendChat sendChat = SendChat
+                .builder()
+                .messageType(MessageType.CHAT_MESSAGE)
+                .chatRoomId(chatRoomId)
+                .message("blocked message")
+                .build();
+
+        // when: 세션이 방에 없는 상태에서 CHAT_MESSAGE 전송
+        session.sendMessage(new TextMessage(objectMapper.writeValueAsString(sendChat)));
+
+        // then: 메시지가 차단되어 아무 응답도 오지 않아야 함
+        boolean anyMessageReceived = latch.await(1, TimeUnit.SECONDS);
+        assertThat(anyMessageReceived).isFalse();
+        assertThat(receivedMessages).isEmpty();
+        assertThat(chatRoomManager.getWebSocketSessionBy(chatRoomId)).isEmpty();
     }
 
     @Test

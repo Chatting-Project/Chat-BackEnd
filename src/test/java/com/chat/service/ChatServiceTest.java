@@ -5,6 +5,7 @@ import com.chat.fixture.TestDataFixture;
 import com.chat.repository.*;
 import com.chat.repository.dtos.MemberUnreadCount;
 import com.chat.service.dtos.ChatHistory;
+import com.chat.service.dtos.ChatHistoryResponse;
 import com.chat.service.dtos.SaveChatData;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -90,7 +91,7 @@ class ChatServiceTest {
 
         // then
         assertThat(chatData.getChatId()).isEqualTo(savedChatId);
-        assertThat(chatData.getUnReadCount()).isEqualTo(2);
+        assertThat(chatData.getUnreadMemberCount()).isEqualTo(2);
         assertThat(chatData.getCreatedDate()).isNotNull();
     }
 
@@ -115,23 +116,28 @@ class ChatServiceTest {
         chatService.saveChat(secondMember.getId(), chatRoomId, "thirdMessage");
 
         // when
-        List<ChatHistory> chatHistory = chatService.findChatHistory(chatRoomId, firstMember.getId());
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, firstMember.getId());
 
         // then
-        assertThat(chatHistory).hasSize(3);
-        ChatHistory firstChat = chatHistory.get(0);
+        List<ChatHistory> messages = response.getMessages();
+        assertThat(messages).hasSize(3);
+
+        // lastReadChatId: 조회 전 firstMember가 마지막으로 읽은 메시지 = 자신이 보낸 firstChat
+        assertThat(response.getLastReadChatId()).isEqualTo(firstChatId);
+
+        ChatHistory firstChat = messages.get(0);
         assertThat(firstChat.getChatId()).isEqualTo(firstChatId);
         assertThat(firstChat.getSenderId()).isEqualTo(firstMember.getId());
-        assertThat(firstChat.getUnReadCount()).isEqualTo(1L);
+        assertThat(firstChat.getUnreadMemberCount()).isEqualTo(1L);
 
-        // Phase 5: updateUnreadChatReadsToRead 이후 count → firstMember 읽음 제외한 값
-        ChatHistory secondChat = chatHistory.get(1);
-        assertThat(secondChat.getUnReadCount()).isEqualTo(1L);
+        // updateUnreadChatReadsToRead 이후 count → firstMember 읽음 제외한 값
+        ChatHistory secondChat = messages.get(1);
+        assertThat(secondChat.getUnreadMemberCount()).isEqualTo(1L);
 
-        ChatHistory thirdChat = chatHistory.get(2);
-        assertThat(thirdChat.getUnReadCount()).isEqualTo(1L);
+        ChatHistory thirdChat = messages.get(2);
+        assertThat(thirdChat.getUnreadMemberCount()).isEqualTo(1L);
 
-        // firstMember의 미읽음이 0인지 확인 — 삭제된 findUnReadCountBy 대신 배치 쿼리 사용
+        // firstMember의 미읽음이 0인지 확인 — 배치 쿼리 사용
         List<MemberUnreadCount> remainingUnread = chatReadRepository
                 .findUnReadCountsBy(chatRoomId, List.of(firstMember.getId()));
         assertThat(remainingUnread).isEmpty();
@@ -153,10 +159,10 @@ class ChatServiceTest {
         ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
 
         // when
-        List<ChatHistory> chatHistory = chatService.findChatHistory(chatRoom.getId(),
-                firstMember.getId());
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoom.getId(), firstMember.getId());
 
         // then
-        assertThat(chatHistory).isEmpty();
+        assertThat(response.getMessages()).isEmpty();
+        assertThat(response.getLastReadChatId()).isNull();
     }
 }

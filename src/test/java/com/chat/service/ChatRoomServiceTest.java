@@ -130,7 +130,7 @@ class ChatRoomServiceTest {
         // then
         assertThat(chatRooms).hasSize(1);
         assertThat(chatRooms.get(0).getLastMessage()).isNull();
-        assertThat(chatRooms.get(0).getUnReadCount()).isEqualTo(0L);
+        assertThat(chatRooms.get(0).getUnreadMessageCount()).isEqualTo(0L);
     }
 
     @Test
@@ -172,7 +172,7 @@ class ChatRoomServiceTest {
 
         // then
         assertThat(chatRooms).hasSize(1);
-        assertThat(chatRooms.get(0).getUnReadCount()).isEqualTo(2L);
+        assertThat(chatRooms.get(0).getUnreadMessageCount()).isEqualTo(2L);
     }
 
     @Test
