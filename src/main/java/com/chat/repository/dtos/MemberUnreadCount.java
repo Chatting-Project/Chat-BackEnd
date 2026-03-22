@@ -8,10 +8,10 @@ import lombok.NoArgsConstructor;
 public class MemberUnreadCount {
 
     private Long memberId;
-    private Long unreadCount;
+    private Long unreadMemberCount;
 
-    public MemberUnreadCount(Long memberId, Long unreadCount) {
+    public MemberUnreadCount(Long memberId, Long unreadMemberCount) {
         this.memberId = memberId;
-        this.unreadCount = unreadCount;
+        this.unreadMemberCount = unreadMemberCount;
     }
 }

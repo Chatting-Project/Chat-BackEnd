@@ -8,10 +8,10 @@ import lombok.NoArgsConstructor;
 public class ChatRoomUnreadCount {
 
     private Long chatRoomId;
-    private Long unreadCount;
+    private Long unreadMessageCount;
 
-    public ChatRoomUnreadCount(Long chatRoomId, Long unreadCount) {
+    public ChatRoomUnreadCount(Long chatRoomId, Long unreadMessageCount) {
         this.chatRoomId = chatRoomId;
-        this.unreadCount = unreadCount;
+        this.unreadMessageCount = unreadMessageCount;
     }
 }

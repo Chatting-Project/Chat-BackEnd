@@ -9,13 +9,13 @@ import java.time.LocalDateTime;
 public class SaveChatData {
 
     private Long chatId;
-    private Long unReadCount;
+    private Long unreadMemberCount;
     private LocalDateTime createdDate;
 
     @Builder
-    public SaveChatData(Long chatId, Long unReadCount, LocalDateTime createdDate) {
+    public SaveChatData(Long chatId, Long unreadMemberCount, LocalDateTime createdDate) {
         this.chatId = chatId;
-        this.unReadCount = unReadCount;
+        this.unreadMemberCount = unreadMemberCount;
         this.createdDate = createdDate;
     }
 }

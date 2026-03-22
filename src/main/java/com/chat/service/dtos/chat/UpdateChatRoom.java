@@ -13,6 +13,6 @@ public class UpdateChatRoom {
     private final MessageType messageType;
     private final Long chatRoomId;
     private final String lastMessage;
-    private final Long unReadCount;
+    private final Long unreadMessageCount;
     private final LocalDateTime createdDate;
 }
