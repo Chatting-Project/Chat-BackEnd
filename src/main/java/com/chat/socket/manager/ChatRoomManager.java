@@ -24,8 +24,20 @@ public class ChatRoomManager {
         IdValidator.requireChatRoomId(chatRoomId);
         Long loginMemberId = (Long) session.getAttributes().get(SessionConst.SESSION_ID);
 
+        // 방 전환
+        chatRooms.forEach((roomId, sessions) -> {
+            if (!roomId.equals(chatRoomId) && sessions.contains(session)) {
+                removeChatRoomSession(roomId, session);
+            }
+        });
+
         chatRooms.computeIfAbsent(chatRoomId, key -> ConcurrentHashMap.newKeySet()).add(session);
         memberToRoomsMap.computeIfAbsent(loginMemberId, k -> ConcurrentHashMap.newKeySet()).add(chatRoomId);
+    }
+
+    public boolean isInRoom(Long chatRoomId, Long memberId) {
+        return getWebSocketSessionBy(chatRoomId).stream()
+                .anyMatch(s -> memberId.equals(s.getAttributes().get(SessionConst.SESSION_ID)));
     }
 
     public Set<WebSocketSession> getWebSocketSessionBy(Long chatRoomId) {

@@ -9,6 +9,7 @@ import com.chat.service.dtos.ChatHistory;
 import com.chat.service.dtos.ChatHistoryResponse;
 import com.chat.service.dtos.LastChatRead;
 import com.chat.service.dtos.SaveChatData;
+import com.chat.socket.manager.ChatRoomManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,8 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
     private final MemberRepository memberRepository;
+
+    private final ChatRoomManager chatRoomManager;
 
     public SaveChatData findChatData(Long chatId) {
         Chat findChat = chatRepository.findById(chatId).orElseThrow(
@@ -66,14 +69,15 @@ public class ChatService {
         // 발신자의 이전 미읽음 메시지 읽음 처리 (메시지를 보내는 행위 = 이전 메시지 모두 읽음)
         chatReadRepository.updateUnreadChatReadsToRead(senderId, chatRoomId);
 
-        // 읽음 저장: 발신자=true, 나머지=false (실제 읽음 처리는 getChatHistory 호출 시점에만 수행)
+        // 읽음 저장: 발신자=true, 방에 접속 중인 멤버=true, 나머지=false
         List<ChatRoomParticipant> findChatRoomParticipants
                 = chatRoomParticipantRepository
                 .findAllFetchMemberBy(chatRoomId);
 
         for (ChatRoomParticipant findChatRoomParticipant : findChatRoomParticipants) {
             Member participant = findChatRoomParticipant.getMember();
-            boolean isRead = participant.getId().equals(senderId);
+            boolean isRead = participant.getId().equals(senderId)
+                    || chatRoomManager.isInRoom(chatRoomId, participant.getId());
             chatReadRepository.save(new ChatRead(isRead, participant, chat));
         }
     }

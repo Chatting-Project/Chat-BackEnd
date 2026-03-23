@@ -11,6 +11,7 @@ public enum MessageType {
     CHAT_ENTER("채팅방 접속"),
     ENTER_ROOM("채팅방 입장 요청"),
     UPDATE_CHAT_ROOM("채팅방 목록 갱신"),
+    READ_EVENT("읽음 이벤트")
     ;
 
     private final String description;

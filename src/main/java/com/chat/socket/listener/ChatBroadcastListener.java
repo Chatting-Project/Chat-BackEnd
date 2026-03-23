@@ -2,6 +2,7 @@ package com.chat.socket.listener;
 
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
+import com.chat.service.ChatRoomService;
 import com.chat.socket.event.PublishEnterRoomEvent;
 import com.chat.socket.event.PublishMessageEvent;
 import com.chat.socket.manager.ChatRoomManager;
@@ -23,6 +24,7 @@ import java.util.Set;
 public class ChatBroadcastListener {
 
     private final ChatRoomManager chatRoomManager;
+    private final ChatRoomService chatRoomService;
     private final ObjectMapper objectMapper;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -50,6 +52,8 @@ public class ChatBroadcastListener {
                 log.warn("메시지 전송 실패: session={}", session.getId(), e);
             }
         }
+
+        chatRoomService.broadcastToChatRoomMembers(event.getChatRoomId());
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
