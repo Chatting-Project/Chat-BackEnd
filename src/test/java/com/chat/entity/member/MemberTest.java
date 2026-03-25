@@ -30,6 +30,32 @@ class MemberTest {
     }
 
     @Test
+    @DisplayName("닉네임을 변경한다.")
+    void changeNicknameTest() {
+        // given
+        Member member = Member.of("username", "password", "oldNickname");
+
+        // when
+        member.changeNickname("newNickname");
+
+        // then
+        assertThat(member.getNickname()).isEqualTo("newNickname");
+    }
+
+    @Test
+    @DisplayName("비밀번호를 변경한다.")
+    void changePasswordTest() {
+        // given
+        Member member = Member.of("username", "oldPassword", "nickname");
+
+        // when
+        member.changePassword("newEncodedPassword");
+
+        // then
+        assertThat(member.getPassword()).isEqualTo("newEncodedPassword");
+    }
+
+    @Test
     @DisplayName("사용자 ID 가 없을 시 회원 엔티티를 생성하면 CustomException 이 발생한다.")
     void emptyUsernameCreateMemberFailTest() {
         // given

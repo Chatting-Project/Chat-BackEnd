@@ -139,6 +139,9 @@ class ChatServiceTest {
         // lastReadChatId: 조회 전 firstMember가 마지막으로 읽은 메시지 = 자신이 보낸 firstChat
         assertThat(response.getLastReadChatId()).isEqualTo(firstChatId);
 
+        // updatedCount: secondChat, thirdChat 2개가 false → true
+        assertThat(response.getUpdatedCount()).isEqualTo(2);
+
         ChatHistory firstChat = messages.get(0);
         assertThat(firstChat.getChatId()).isEqualTo(firstChatId);
         assertThat(firstChat.getSenderId()).isEqualTo(firstMember.getId());
@@ -210,5 +213,29 @@ class ChatServiceTest {
         // then
         assertThat(response.getMessages()).isEmpty();
         assertThat(response.getLastReadChatId()).isNull();
+        assertThat(response.getUpdatedCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("채팅방 재입장 시 이미 모두 읽은 상태면 updatedCount가 0이다.")
+    void findChatHistory_재입장시_updatedCount가_0이다() {
+        // given
+        Member firstMember = fixture.savedMemberBy("firstMember");
+        Member secondMember = fixture.savedMemberBy("secondMember");
+
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(firstMember, secondMember));
+        Long chatRoomId = chatRoom.getId();
+
+        chatService.saveChat(firstMember.getId(), chatRoomId, "message");
+
+        // 첫 번째 입장: secondMember의 미읽음 1개 → 읽음 처리
+        ChatHistoryResponse firstResponse = chatService.findChatHistory(chatRoomId, secondMember.getId());
+        assertThat(firstResponse.getUpdatedCount()).isEqualTo(1);
+
+        // when: 재입장 — 이미 모두 읽음 처리된 상태
+        ChatHistoryResponse secondResponse = chatService.findChatHistory(chatRoomId, secondMember.getId());
+
+        // then
+        assertThat(secondResponse.getUpdatedCount()).isEqualTo(0);
     }
 }

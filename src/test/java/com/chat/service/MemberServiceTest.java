@@ -5,6 +5,7 @@ import com.chat.api.request.member.LoginRequest;
 import com.chat.api.response.member.GetMembersResponse;
 import com.chat.entity.ChatRoom;
 import com.chat.entity.Member;
+import com.chat.exception.CustomException;
 import com.chat.fixture.TestDataFixture;
 import com.chat.repository.MemberRepository;
 import com.chat.service.dtos.LoginResponse;
@@ -115,6 +116,47 @@ class MemberServiceTest {
 
         // then
         assertThat(members).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("닉네임을 변경한다.")
+    void changeNicknameTest() {
+        // given
+        Long memberId = joinSimpleMember("user");
+        String newNickname = "newNickname";
+
+        // when
+        memberService.changeNickname(memberId, newNickname);
+
+        // then
+        Member findMember = memberRepository.findById(memberId).get();
+        assertThat(findMember.getNickname()).isEqualTo(newNickname);
+    }
+
+    @Test
+    @DisplayName("비밀번호를 변경한다.")
+    void changePasswordTest() {
+        // given
+        Long memberId = joinMember("user", "oldPassword", "nickname");
+        String oldPassword = memberRepository.findById(memberId).get().getPassword();
+
+        // when
+        memberService.changePassword(memberId, "oldPassword", "newPassword");
+
+        // then
+        Member findMember = memberRepository.findById(memberId).get();
+        assertThat(findMember.getPassword()).isNotEqualTo(oldPassword);
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 틀리면 비밀번호 변경 시 예외가 발생한다.")
+    void changePassword_wrongCurrentPassword_throwsException() {
+        // given
+        Long memberId = joinMember("user", "correctPassword", "nickname");
+
+        // when & then
+        assertThatThrownBy(() -> memberService.changePassword(memberId, "wrongPassword", "newPassword"))
+                .isInstanceOf(CustomException.class);
     }
 
     @Test

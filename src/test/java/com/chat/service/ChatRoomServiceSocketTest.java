@@ -341,7 +341,8 @@ public class ChatRoomServiceSocketTest {
         Thread.sleep(500); // AFTER_COMMIT 대기
 
         // when: getChatHistory 호출 후 broadcastAfterRead 호출하는 상황 시뮬레이션
-        chatRoomService.broadcastAfterRead(secondId, chatRoomId);
+        // second가 처음 입장이므로 lastReadChatId = null
+        chatRoomService.broadcastAfterRead(secondId, chatRoomId, null);
 
         // then: UPDATE_CHAT_ROOM + READ_EVENT 수신 대기
         boolean received = latch.await(3, TimeUnit.SECONDS);
@@ -359,7 +360,7 @@ public class ChatRoomServiceSocketTest {
                 .collect(Collectors.toList());
         assertThat(messageTypes).containsExactlyInAnyOrder("UPDATE_CHAT_ROOM", "READ_EVENT");
 
-        // READ_EVENT의 memberId, chatRoomId 검증
+        // READ_EVENT의 memberId, chatRoomId, lastReadChatId 검증
         String readEventPayload = secondMessages.stream()
                 .filter(msg -> msg.contains("READ_EVENT"))
                 .findFirst()
@@ -367,5 +368,56 @@ public class ChatRoomServiceSocketTest {
         JsonNode readEventNode = objectMapper.readTree(readEventPayload);
         assertThat(readEventNode.get("memberId").asLong()).isEqualTo(secondId);
         assertThat(readEventNode.get("chatRoomId").asLong()).isEqualTo(chatRoomId);
+        assertThat(readEventNode.get("lastReadChatId").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("broadcastAfterRead는 READ_EVENT에 lastReadChatId를 포함한다.")
+    void broadcastAfterRead_READ_EVENT에_lastReadChatId를_포함한다() throws ExecutionException, InterruptedException, JsonProcessingException {
+        // given
+        String firstUsername = "first";
+        Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
+        Long firstId = first.getId();
+
+        String secondUsername = "second";
+        Member second = memberFixture.saveEncryptPasswordBy(secondUsername);
+        Long secondId = second.getId();
+
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(first, second));
+        Long chatRoomId = chatRoom.getId();
+
+        // first가 첫 번째 메시지 전송 → second.isRead=false
+        Long firstChatId = chatService.saveChat(firstId, chatRoomId, "first message");
+
+        // second 첫 번째 입장: firstChat 읽음 처리 (lastReadChatId=null, updatedCount=1)
+        chatService.findChatHistory(chatRoomId, secondId);
+
+        // first가 두 번째 메시지 전송 → second.isRead=false
+        chatService.saveChat(firstId, chatRoomId, "second message");
+
+        // second WS 연결 및 방 입장
+        String secondJSessionId = memberFixture.loginRequestBy(secondUsername, port);
+        CountDownLatch latch = new CountDownLatch(2);
+        List<String> secondMessages = new ArrayList<>();
+        socketFixture.connectSocket(secondJSessionId, secondId, port, secondMessages, latch);
+
+        WebSocketSession secondServerSession = websocketSessionManager.getSessionBy(secondId).iterator().next();
+        chatRoomService.connectChatRoomSocket(secondServerSession, secondId, chatRoomId);
+        Thread.sleep(500);
+
+        // when: 두 번째 입장 → lastReadChatId = firstChatId (이전에 firstChat까지 읽었음)
+        chatRoomService.broadcastAfterRead(secondId, chatRoomId, firstChatId);
+
+        // then: READ_EVENT에 lastReadChatId 포함 검증
+        boolean received = latch.await(3, TimeUnit.SECONDS);
+        assertThat(received).isTrue();
+
+        String readEventPayload = secondMessages.stream()
+                .filter(msg -> msg.contains("READ_EVENT"))
+                .findFirst()
+                .orElseThrow();
+        JsonNode readEventNode = objectMapper.readTree(readEventPayload);
+        assertThat(readEventNode.get("memberId").asLong()).isEqualTo(secondId);
+        assertThat(readEventNode.get("lastReadChatId").asLong()).isEqualTo(firstChatId);
     }
 }
