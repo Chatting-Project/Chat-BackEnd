@@ -7,6 +7,7 @@ import com.chat.repository.dtos.MemberUnreadCount;
 import com.chat.service.dtos.ChatHistory;
 import com.chat.service.dtos.ChatHistoryResponse;
 import com.chat.service.dtos.SaveChatData;
+import com.chat.socket.event.PublishReadEvent;
 import com.chat.socket.manager.ChatRoomManager;
 import com.chat.utils.consts.SessionConst;
 import org.junit.jupiter.api.AfterEach;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -27,6 +30,7 @@ import static org.mockito.Mockito.mock;
 
 @Transactional
 @SpringBootTest
+@RecordApplicationEvents
 class ChatServiceTest {
 
     @Autowired
@@ -139,9 +143,6 @@ class ChatServiceTest {
         // lastReadChatId: 조회 전 firstMember가 마지막으로 읽은 메시지 = 자신이 보낸 firstChat
         assertThat(response.getLastReadChatId()).isEqualTo(firstChatId);
 
-        // updatedCount: secondChat, thirdChat 2개가 false → true
-        assertThat(response.getUpdatedCount()).isEqualTo(2);
-
         ChatHistory firstChat = messages.get(0);
         assertThat(firstChat.getChatId()).isEqualTo(firstChatId);
         assertThat(firstChat.getSenderId()).isEqualTo(firstMember.getId());
@@ -213,12 +214,11 @@ class ChatServiceTest {
         // then
         assertThat(response.getMessages()).isEmpty();
         assertThat(response.getLastReadChatId()).isNull();
-        assertThat(response.getUpdatedCount()).isEqualTo(0);
     }
 
     @Test
-    @DisplayName("채팅방 재입장 시 이미 모두 읽은 상태면 updatedCount가 0이다.")
-    void findChatHistory_재입장시_updatedCount가_0이다() {
+    @DisplayName("채팅방 재입장 시 이미 모두 읽은 상태면 미읽음이 남지 않는다.")
+    void findChatHistory_재입장시_미읽음이_남지_않는다() {
         // given
         Member firstMember = fixture.savedMemberBy("firstMember");
         Member secondMember = fixture.savedMemberBy("secondMember");
@@ -229,13 +229,66 @@ class ChatServiceTest {
         chatService.saveChat(firstMember.getId(), chatRoomId, "message");
 
         // 첫 번째 입장: secondMember의 미읽음 1개 → 읽음 처리
-        ChatHistoryResponse firstResponse = chatService.findChatHistory(chatRoomId, secondMember.getId());
-        assertThat(firstResponse.getUpdatedCount()).isEqualTo(1);
+        chatService.findChatHistory(chatRoomId, secondMember.getId());
+
+        List<MemberUnreadCount> afterFirst = chatReadRepository
+                .findUnReadCountsBy(chatRoomId, List.of(secondMember.getId()));
+        assertThat(afterFirst).isEmpty();
 
         // when: 재입장 — 이미 모두 읽음 처리된 상태
-        ChatHistoryResponse secondResponse = chatService.findChatHistory(chatRoomId, secondMember.getId());
+        chatService.findChatHistory(chatRoomId, secondMember.getId());
 
-        // then
-        assertThat(secondResponse.getUpdatedCount()).isEqualTo(0);
+        // then: 재입장 후에도 미읽음 없음
+        List<MemberUnreadCount> afterSecond = chatReadRepository
+                .findUnReadCountsBy(chatRoomId, List.of(secondMember.getId()));
+        assertThat(afterSecond).isEmpty();
+    }
+
+    @Test
+    @DisplayName("읽지 않은 메시지가 있으면 PublishReadEvent가 발행된다.")
+    void findChatHistory_unreadExists_publishesReadEvent(ApplicationEvents events) {
+        // given
+        Member firstMember = fixture.savedMemberBy("firstMember");
+        Member secondMember = fixture.savedMemberBy("secondMember");
+
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(firstMember, secondMember));
+        Long chatRoomId = chatRoom.getId();
+
+        Long firstChatId = chatService.saveChat(firstMember.getId(), chatRoomId, "message");
+
+        // when: secondMember 입장 — 미읽음 1개 존재
+        chatService.findChatHistory(chatRoomId, secondMember.getId());
+
+        // then: PublishReadEvent 1건 발행, 필드값 검증
+        List<PublishReadEvent> publishedEvents = events.stream(PublishReadEvent.class).toList();
+        assertThat(publishedEvents).hasSize(1);
+
+        PublishReadEvent event = publishedEvents.get(0);
+        assertThat(event.getMemberId()).isEqualTo(secondMember.getId());
+        assertThat(event.getChatRoomId()).isEqualTo(chatRoomId);
+        assertThat(event.getLastReadChatId()).isNull(); // 이전에 읽은 기록 없음
+    }
+
+    @Test
+    @DisplayName("읽지 않은 메시지가 없으면 PublishReadEvent가 발행되지 않는다.")
+    void findChatHistory_noUnread_doesNotPublishReadEvent(ApplicationEvents events) {
+        // given
+        Member firstMember = fixture.savedMemberBy("firstMember");
+        Member secondMember = fixture.savedMemberBy("secondMember");
+
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(firstMember, secondMember));
+        Long chatRoomId = chatRoom.getId();
+
+        chatService.saveChat(firstMember.getId(), chatRoomId, "message");
+
+        // 첫 번째 입장: 미읽음 읽음 처리 → 이벤트 발행됨
+        chatService.findChatHistory(chatRoomId, secondMember.getId());
+
+        // when: 재입장 — 미읽음 없음
+        chatService.findChatHistory(chatRoomId, secondMember.getId());
+
+        // then: 두 번 호출했지만 이벤트는 첫 번째 호출에서만 1건 발행
+        long eventCount = events.stream(PublishReadEvent.class).count();
+        assertThat(eventCount).isEqualTo(1);
     }
 }
