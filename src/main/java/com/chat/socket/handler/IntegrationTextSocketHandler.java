@@ -65,7 +65,6 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
                 log.info("chat : {} member : {}", payload, loginMemberId);
 
                 chatRoomService.broadCastMessage(loginMemberId, sendChat);
-                chatRoomService.broadcastToChatRoomMembers(chatRoomId);
 
                 break;
             case ENTER_ROOM:
