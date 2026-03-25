@@ -420,4 +420,113 @@ public class ChatRoomServiceSocketTest {
         assertThat(readEventNode.get("memberId").asLong()).isEqualTo(secondId);
         assertThat(readEventNode.get("lastReadChatId").asLong()).isEqualTo(firstChatId);
     }
+
+    @Test
+    @DisplayName("leaveChatRoom은 남은 참여자에게 UPDATE_CHAT_ROOM을 전송한다.")
+    void leaveChatRoom_UPDATE_CHAT_ROOM_전송() throws ExecutionException, InterruptedException, JsonProcessingException {
+        // given
+        String firstUsername = "first";
+        Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
+        Long firstId = first.getId();
+
+        String secondUsername = "second";
+        Member second = memberFixture.saveEncryptPasswordBy(secondUsername);
+        Long secondId = second.getId();
+
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(first, second));
+        Long chatRoomId = chatRoom.getId();
+
+        // first가 WS 연결 및 방 입장
+        String firstJSessionId = memberFixture.loginRequestBy(firstUsername, port);
+        CountDownLatch latch = new CountDownLatch(1);
+        List<String> firstMessages = new ArrayList<>();
+        socketFixture.connectSocket(firstJSessionId, firstId, port, firstMessages, latch);
+
+        WebSocketSession firstServerSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
+        chatRoomManager.addSessionToRoom(firstServerSession, chatRoomId);
+
+        // when: second가 채팅방 퇴장
+        chatRoomService.leaveChatRoom(secondId, chatRoomId);
+
+        // then: 남은 first에게 UPDATE_CHAT_ROOM 전송
+        boolean received = latch.await(3, TimeUnit.SECONDS);
+        assertThat(received).isTrue();
+        assertThat(firstMessages).isNotEmpty();
+
+        JsonNode node = objectMapper.readTree(firstMessages.get(0));
+        assertThat(node.get("messageType").asText()).isEqualTo("UPDATE_CHAT_ROOM");
+        assertThat(node.get("chatRoomId").asLong()).isEqualTo(chatRoomId);
+    }
+
+    @Test
+    @DisplayName("renameChatRoom은 참여자에게 변경된 제목의 UPDATE_CHAT_ROOM을 전송한다.")
+    void renameChatRoom_UPDATE_CHAT_ROOM_전송() throws ExecutionException, InterruptedException, JsonProcessingException {
+        // given
+        String firstUsername = "first";
+        Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
+        Long firstId = first.getId();
+
+        ChatRoom chatRoom = fixture.savedChatRoomBy("oldTitle", List.of(first));
+        Long chatRoomId = chatRoom.getId();
+
+        // first가 WS 연결 및 방 입장
+        String firstJSessionId = memberFixture.loginRequestBy(firstUsername, port);
+        CountDownLatch latch = new CountDownLatch(1);
+        List<String> firstMessages = new ArrayList<>();
+        socketFixture.connectSocket(firstJSessionId, firstId, port, firstMessages, latch);
+
+        WebSocketSession firstServerSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
+        chatRoomManager.addSessionToRoom(firstServerSession, chatRoomId);
+
+        // when: 채팅방 이름 변경
+        chatRoomService.renameChatRoom(firstId, chatRoomId, "newTitle");
+
+        // then: UPDATE_CHAT_ROOM에 변경된 title 포함
+        boolean received = latch.await(3, TimeUnit.SECONDS);
+        assertThat(received).isTrue();
+        assertThat(firstMessages).isNotEmpty();
+
+        JsonNode node = objectMapper.readTree(firstMessages.get(0));
+        assertThat(node.get("messageType").asText()).isEqualTo("UPDATE_CHAT_ROOM");
+        assertThat(node.get("chatRoomId").asLong()).isEqualTo(chatRoomId);
+        assertThat(node.get("title").asText()).isEqualTo("newTitle");
+    }
+
+    @Test
+    @DisplayName("inviteMembers는 기존 참여자에게 UPDATE_CHAT_ROOM을 전송한다.")
+    void inviteMembers_UPDATE_CHAT_ROOM_전송() throws ExecutionException, InterruptedException, JsonProcessingException {
+        // given
+        String firstUsername = "first";
+        Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
+        Long firstId = first.getId();
+
+        String secondUsername = "second";
+        Member second = memberFixture.saveEncryptPasswordBy(secondUsername);
+        Long secondId = second.getId();
+
+        // 초기 방: first만 참여
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(first));
+        Long chatRoomId = chatRoom.getId();
+
+        // first가 WS 연결 및 방 입장
+        String firstJSessionId = memberFixture.loginRequestBy(firstUsername, port);
+        CountDownLatch latch = new CountDownLatch(1);
+        List<String> firstMessages = new ArrayList<>();
+        socketFixture.connectSocket(firstJSessionId, firstId, port, firstMessages, latch);
+
+        WebSocketSession firstServerSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
+        chatRoomManager.addSessionToRoom(firstServerSession, chatRoomId);
+
+        // when: second를 초대
+        chatRoomService.inviteMembers(firstId, chatRoomId, Set.of(secondId));
+
+        // then: 기존 참여자 first에게 UPDATE_CHAT_ROOM 전송
+        boolean received = latch.await(3, TimeUnit.SECONDS);
+        assertThat(received).isTrue();
+        assertThat(firstMessages).isNotEmpty();
+
+        JsonNode node = objectMapper.readTree(firstMessages.get(0));
+        assertThat(node.get("messageType").asText()).isEqualTo("UPDATE_CHAT_ROOM");
+        assertThat(node.get("chatRoomId").asLong()).isEqualTo(chatRoomId);
+    }
 }

@@ -267,6 +267,8 @@ class ChatServiceTest {
         assertThat(event.getMemberId()).isEqualTo(secondMember.getId());
         assertThat(event.getChatRoomId()).isEqualTo(chatRoomId);
         assertThat(event.getLastReadChatId()).isNull(); // 이전에 읽은 기록 없음
+        assertThat(event.getUpdatesByMemberId()).isNotEmpty();
+        assertThat(event.getUpdatesByMemberId()).containsKey(secondMember.getId());
     }
 
     @Test
