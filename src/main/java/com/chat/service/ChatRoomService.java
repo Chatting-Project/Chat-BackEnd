@@ -15,6 +15,7 @@ import com.chat.service.dtos.chat.ReadEvent;
 import com.chat.service.dtos.chat.SendChat;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.chat.socket.event.PublishMessageEvent;
+import com.chat.socket.event.PublishUpdateEvent;
 import com.chat.socket.manager.ChatRoomManager;
 import com.chat.socket.manager.WebsocketSessionManager;
 import com.chat.utils.consts.SessionConst;
@@ -77,7 +78,8 @@ public class ChatRoomService {
                 .createdDate(chatData.getCreatedDate())
                 .build();
 
-        publisher.publishEvent(new PublishMessageEvent(broadcastChat, chatRoomId));
+        Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
+        publisher.publishEvent(new PublishMessageEvent(broadcastChat, chatRoomId, updatesByMemberId));
     }
 
     public void broadcastAfterRead(Long memberId, Long chatRoomId, Long lastReadChatId) {
@@ -327,7 +329,8 @@ public class ChatRoomService {
             }
         }
 
-        broadcastToChatRoomMembers(chatRoomId);
+        Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
+        publisher.publishEvent(new PublishUpdateEvent(chatRoomId, updatesByMemberId));
     }
 
     @Transactional
@@ -342,7 +345,8 @@ public class ChatRoomService {
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST));
         chatRoom.rename(title);
 
-        broadcastToChatRoomMembers(chatRoomId);
+        Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
+        publisher.publishEvent(new PublishUpdateEvent(chatRoomId, updatesByMemberId));
     }
 
     public List<ChatRoomMemberResponse> findChatRoomMembers(Long memberId, Long chatRoomId) {
@@ -392,6 +396,7 @@ public class ChatRoomService {
             }
         }
 
-        broadcastToChatRoomMembers(chatRoomId);
+        Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
+        publisher.publishEvent(new PublishUpdateEvent(chatRoomId, updatesByMemberId));
     }
 }

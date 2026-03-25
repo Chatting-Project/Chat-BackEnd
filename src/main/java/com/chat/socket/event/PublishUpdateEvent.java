@@ -8,9 +8,8 @@ import java.util.Map;
 
 @Getter
 @AllArgsConstructor
-public class PublishReadEvent {
-    private final Long memberId;
+public class PublishUpdateEvent {
+
     private final Long chatRoomId;
-    private final Long lastReadChatId;
     private final Map<Long, UpdateChatRoom> updatesByMemberId;
 }

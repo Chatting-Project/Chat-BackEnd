@@ -9,6 +9,7 @@ import com.chat.service.dtos.ChatHistory;
 import com.chat.service.dtos.ChatHistoryResponse;
 import com.chat.service.dtos.LastChatRead;
 import com.chat.service.dtos.SaveChatData;
+import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.chat.socket.event.PublishReadEvent;
 import com.chat.socket.manager.ChatRoomManager;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,8 @@ import java.util.stream.Collectors;
 public class ChatService {
 
     private final ApplicationEventPublisher publisher;
+
+    private final BroadcastDataBuilder broadcastDataBuilder;
 
     private final ChatRoomManager chatRoomManager;
 
@@ -113,7 +116,13 @@ public class ChatService {
 
         int updatedCount = chatReadRepository.updateUnreadChatReadsToRead(memberId, chatRoomId);
         if (updatedCount > 0) {
-            publisher.publishEvent(new PublishReadEvent(memberId, chatRoomId, lastReadChatId));
+            Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
+            publisher.publishEvent(new PublishReadEvent(
+                    memberId,
+                    chatRoomId,
+                    lastReadChatId,
+                    updatesByMemberId
+            ));
         }
 
         Map<Long, Long> unreadMemberCountMap = chatReadRepository.countUnreadByChatIds(chatIds).stream()

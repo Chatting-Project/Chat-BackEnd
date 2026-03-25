@@ -5,6 +5,7 @@ import com.chat.exception.ErrorCode;
 import com.chat.service.ChatRoomService;
 import com.chat.socket.event.PublishMessageEvent;
 import com.chat.socket.event.PublishReadEvent;
+import com.chat.socket.event.PublishUpdateEvent;
 import com.chat.socket.manager.ChatRoomManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -63,5 +64,10 @@ public class ChatBroadcastListener {
                 event.getChatRoomId(),
                 event.getLastReadChatId()
         );
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void publishUpdateEventToSessions(PublishUpdateEvent event) {
+        chatRoomService.broadcastToChatRoomMembers(event.getChatRoomId());
     }
 }
