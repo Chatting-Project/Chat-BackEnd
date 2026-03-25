@@ -9,9 +9,11 @@ import com.chat.service.dtos.ChatHistory;
 import com.chat.service.dtos.ChatHistoryResponse;
 import com.chat.service.dtos.LastChatRead;
 import com.chat.service.dtos.SaveChatData;
+import com.chat.socket.event.PublishReadEvent;
 import com.chat.socket.manager.ChatRoomManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,13 +28,15 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ChatService {
 
+    private final ApplicationEventPublisher publisher;
+
+    private final ChatRoomManager chatRoomManager;
+
     private final ChatRepository chatRepository;
     private final ChatReadRepository chatReadRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
     private final MemberRepository memberRepository;
-
-    private final ChatRoomManager chatRoomManager;
 
     public SaveChatData findChatData(Long chatId) {
         Chat findChat = chatRepository.findById(chatId).orElseThrow(
@@ -96,7 +100,7 @@ public class ChatService {
         List<Chat> chats = chatRepository.findChatHistory(chatRoomId);
 
         if (chats.isEmpty()) {
-            return new ChatHistoryResponse(null, List.of(), 0);
+            return new ChatHistoryResponse(null, List.of());
         }
 
         List<Long> chatIds = chats.stream()
@@ -108,6 +112,9 @@ public class ChatService {
         Long lastReadChatId = lastChatRead != null ? lastChatRead.getLastChatReadId() : null;
 
         int updatedCount = chatReadRepository.updateUnreadChatReadsToRead(memberId, chatRoomId);
+        if (updatedCount > 0) {
+            publisher.publishEvent(new PublishReadEvent(memberId, chatRoomId, lastReadChatId));
+        }
 
         Map<Long, Long> unreadMemberCountMap = chatReadRepository.countUnreadByChatIds(chatIds).stream()
                 .collect(Collectors.toMap(
@@ -130,6 +137,6 @@ public class ChatService {
                     .build());
         }
 
-        return new ChatHistoryResponse(lastReadChatId, messages, updatedCount);
+        return new ChatHistoryResponse(lastReadChatId, messages);
     }
 }

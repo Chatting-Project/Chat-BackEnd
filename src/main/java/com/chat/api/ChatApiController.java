@@ -1,6 +1,5 @@
 package com.chat.api;
 
-import com.chat.service.ChatRoomService;
 import com.chat.service.dtos.ChatHistoryResponse;
 import com.chat.utils.consts.SessionConst;
 import com.chat.service.ChatService;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.SessionAttribute;
 public class ChatApiController {
 
     private final ChatService chatService;
-    private final ChatRoomService chatRoomService;
 
     @GetMapping("/api/chats")
     public Result<ChatHistoryResponse> chatHistory(@RequestParam("chatRoomId") Long chatRoomId,
@@ -26,10 +24,6 @@ public class ChatApiController {
 
         // 채팅 내역 조회
         ChatHistoryResponse chatHistory = chatService.findChatHistory(chatRoomId, loginMemberId);
-
-        if (chatHistory.getUpdatedCount() > 0) {
-            chatRoomService.broadcastAfterRead(loginMemberId, chatRoomId, chatHistory.getLastReadChatId());
-        }
 
         return Result
                 .<ChatHistoryResponse>builder()
