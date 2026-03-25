@@ -11,25 +11,20 @@ import com.chat.repository.dtos.ChatRoomUnreadCount;
 import com.chat.service.dtos.SaveChatData;
 import com.chat.service.dtos.SaveChatRoomDTO;
 import com.chat.service.dtos.chat.BroadcastChat;
-import com.chat.service.dtos.chat.ReadEvent;
 import com.chat.service.dtos.chat.SendChat;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.chat.socket.event.PublishMessageEvent;
 import com.chat.socket.event.PublishUpdateEvent;
 import com.chat.socket.manager.ChatRoomManager;
-import com.chat.socket.manager.WebsocketSessionManager;
 import com.chat.utils.consts.SessionConst;
 import com.chat.utils.message.MessageType;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -41,14 +36,10 @@ import java.util.stream.Stream;
 public class ChatRoomService {
 
     private final ApplicationEventPublisher publisher;
-
     private final BroadcastDataBuilder broadcastDataBuilder;
+    private final ChatRoomManager chatRoomManager;
 
     private final ChatService chatService;
-
-    private final WebsocketSessionManager websocketSessionManager;
-    private final ChatRoomManager chatRoomManager;
-    private final ObjectMapper objectMapper;
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
@@ -80,71 +71,6 @@ public class ChatRoomService {
 
         Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
         publisher.publishEvent(new PublishMessageEvent(broadcastChat, chatRoomId, updatesByMemberId));
-    }
-
-    public void broadcastAfterRead(Long memberId, Long chatRoomId, Long lastReadChatId) {
-
-        broadcastToChatRoomMembers(chatRoomId);
-
-        Set<WebSocketSession> sessions = chatRoomManager.getWebSocketSessionBy(chatRoomId);
-        if (sessions.isEmpty()) {
-            return;
-        }
-
-        ReadEvent readEvent = new ReadEvent(memberId, chatRoomId, lastReadChatId);
-        String message;
-        try {
-            message = objectMapper.writeValueAsString(readEvent);
-        } catch (IOException e) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
-        }
-
-        for (WebSocketSession session : sessions) {
-            if (!session.isOpen()) {
-                continue;
-            }
-            try {
-                session.sendMessage(new TextMessage(message));
-            } catch (IOException e) {
-                log.warn("읽음 이벤트 전송 실패 : session={}", session.getId(), e);
-            }
-        }
-    }
-
-    public void broadcastToChatRoomMembers(Long chatRoomId) {
-
-        Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
-        if (updatesByMemberId.isEmpty()) {
-            return;
-        }
-
-        for (Map.Entry<Long, UpdateChatRoom> entry : updatesByMemberId.entrySet()) {
-            Long memberId = entry.getKey();
-            UpdateChatRoom updateChatroom = entry.getValue();
-
-            Collection<WebSocketSession> sessions = websocketSessionManager.getSessionBy(memberId);
-            if (sessions.isEmpty()) {
-                continue;
-            }
-
-            String message;
-            try {
-                message = objectMapper.writeValueAsString(updateChatroom);
-            } catch (IOException e) {
-                throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
-            }
-
-            for (WebSocketSession session : sessions) {
-                if (!session.isOpen()) {
-                    continue;
-                }
-                try {
-                    session.sendMessage(new TextMessage(message));
-                } catch (IOException e) {
-                    log.warn("채팅방 업데이트 전송 실패 : session={}", session.getId(), e);
-                }
-            }
-        }
     }
 
     @Transactional
