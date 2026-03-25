@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -174,40 +173,4 @@ public class SimpleChatRoomServiceSocketTest {
         assertThat(node.get("message").asText()).isEqualTo(message);
     }
 
-    @Test
-    @DisplayName("채팅방 참여자들에게 메시지를 전송한다.")
-    void simpleBroadcastToChatRoomMembersTest() throws ExecutionException, InterruptedException, JsonProcessingException {
-        // given
-        String first = "first";
-        Member firstMember = memberFixture.saveEncryptPasswordBy(first);
-        String firstJSessionId = memberFixture.loginRequestBy(first, port);
-        Long firstMemberId = firstMember.getId();
-
-        String second = "second";
-        Member secondMember = memberFixture.saveEncryptPasswordBy(second);
-        String secondJSessionId = memberFixture.loginRequestBy(second, port);
-        Long secondMemberId = secondMember.getId();
-
-        CountDownLatch latch = new CountDownLatch(2);
-        List<String> firstMessages = new ArrayList<>();
-        socketFixture.connectSocket(firstJSessionId, firstMemberId, port, firstMessages, latch);
-        List<String> secondMessages = new ArrayList<>();
-        socketFixture.connectSocket(secondJSessionId, secondMemberId, port, secondMessages, latch);
-
-        List<Member> participants = new ArrayList<>();
-        participants.add(firstMember);
-        participants.add(secondMember);
-        ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
-        Long chatRoomId = chatRoom.getId();
-
-        // when
-        chatRoomService.broadcastToChatRoomMembers(chatRoomId);
-
-        // then: 서버는 UpdateChatRoom DTO를 직렬화해서 전송 (Phase 3)
-        boolean messageReceived = latch.await(3, TimeUnit.SECONDS);
-        String payload = secondMessages.get(0);
-        JsonNode node = objectMapper.readTree(payload);
-        assertThat(payload).isNotEmpty();
-        assertThat(node.get("chatRoomId").asLong()).isEqualTo(chatRoomId);
-    }
 }

@@ -266,50 +266,7 @@ public class ChatRoomServiceSocketTest {
     }
 
     @Test
-    @DisplayName("채팅방 참여자들에게 마지막 읽음 메시지 정보를 전송한다.")
-    void broadcastToChatRoomMembersTest() throws ExecutionException, InterruptedException, JsonProcessingException {
-        // given
-        String firstUsername = "first";
-        Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
-        Long firstId = first.getId();
-
-        String secondUsername = "second";
-        Member second = memberFixture.saveEncryptPasswordBy(secondUsername);
-        Long secondId = second.getId();
-
-        List<Member> participants = new ArrayList<>();
-        participants.add(first);
-        participants.add(second);
-
-        ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
-        Long chatRoomId = chatRoom.getId();
-
-        chatService.saveChat(firstId, chatRoomId, "firstChat");
-        chatService.saveChat(secondId, chatRoomId, "secondChat");
-
-        String JSESSIONID = memberFixture.loginRequestBy("first", port);
-
-        CountDownLatch latch = new CountDownLatch(2);
-        List<String> recievedMessgaes = new ArrayList<>();
-        socketFixture.connectSocket(JSESSIONID, firstId, port, recievedMessgaes, latch);
-
-        // when
-        chatRoomService.broadcastToChatRoomMembers(chatRoomId);
-
-        // then: 서버는 UpdateChatRoom DTO를 직렬화해서 전송 (Phase 3)
-        boolean messageReceived = latch.await(3, TimeUnit.SECONDS);
-        String payload = recievedMessgaes.get(0);
-        JsonNode node = objectMapper.readTree(payload);
-        assertThat(payload).isNotEmpty();
-        assertThat(node.get("messageType").asText()).isEqualTo("UPDATE_CHAT_ROOM");
-        assertThat(node.get("chatRoomId").asLong()).isEqualTo(chatRoomId);
-        assertThat(node.get("title").asText()).isEqualTo("title");
-        assertThat(node.get("lastMessage").asText()).isEqualTo("secondChat");
-        assertThat(node.get("unreadMessageCount").asLong()).isEqualTo(1L);
-    }
-
-    @Test
-    @DisplayName("broadcastAfterRead는 방에 접속 중인 세션에 UPDATE_CHAT_ROOM과 READ_EVENT를 전송한다.")
+    @DisplayName("findChatHistory는 방에 접속 중인 세션에 UPDATE_CHAT_ROOM과 READ_EVENT를 전송한다.")
     void broadcastAfterReadTest() throws ExecutionException, InterruptedException, JsonProcessingException {
         // given
         String firstUsername = "first";
@@ -340,9 +297,8 @@ public class ChatRoomServiceSocketTest {
         chatRoomManager.addSessionToRoom(secondServerSession, chatRoomId);
         Thread.sleep(500);
 
-        // when: getChatHistory 호출 후 broadcastAfterRead 호출하는 상황 시뮬레이션
-        // second가 처음 입장이므로 lastReadChatId = null
-        chatRoomService.broadcastAfterRead(secondId, chatRoomId, null);
+        // when: second가 채팅 내역 조회 → updatedCount > 0 이면 READ_EVENT + UPDATE_CHAT_ROOM 발행
+        chatService.findChatHistory(chatRoomId, secondId);
 
         // then: UPDATE_CHAT_ROOM + READ_EVENT 수신 대기
         boolean received = latch.await(3, TimeUnit.SECONDS);
@@ -372,8 +328,8 @@ public class ChatRoomServiceSocketTest {
     }
 
     @Test
-    @DisplayName("broadcastAfterRead는 READ_EVENT에 lastReadChatId를 포함한다.")
-    void broadcastAfterRead_READ_EVENT에_lastReadChatId를_포함한다() throws ExecutionException, InterruptedException, JsonProcessingException {
+    @DisplayName("findChatHistory는 READ_EVENT에 이전 방문 시 마지막으로 읽은 chatId를 포함한다.")
+    void findChatHistory_READ_EVENT에_lastReadChatId를_포함한다() throws ExecutionException, InterruptedException, JsonProcessingException {
         // given
         String firstUsername = "first";
         Member first = memberFixture.saveEncryptPasswordBy(firstUsername);
@@ -405,8 +361,8 @@ public class ChatRoomServiceSocketTest {
         chatRoomManager.addSessionToRoom(secondServerSession, chatRoomId);
         Thread.sleep(500);
 
-        // when: 두 번째 입장 → lastReadChatId = firstChatId (이전에 firstChat까지 읽었음)
-        chatRoomService.broadcastAfterRead(secondId, chatRoomId, firstChatId);
+        // when: second 두 번째 채팅 내역 조회 → lastReadChatId = firstChatId (이전 방문 시 firstChat까지 읽었음)
+        chatService.findChatHistory(chatRoomId, secondId);
 
         // then: READ_EVENT에 lastReadChatId 포함 검증
         boolean received = latch.await(3, TimeUnit.SECONDS);
