@@ -89,9 +89,9 @@ public class ChatRoomServiceSocketTest {
 
         // when
         WebSocketSession serverSession = websocketSessionManager.getSessionBy(memberId).iterator().next();
-        chatRoomService.connectChatRoomSocket(serverSession, memberId, chatRoomId);
+        chatRoomManager.addSessionToRoom(serverSession, chatRoomId);
 
-        // then: CHAT_ENTER를 전송하지 않으므로 메시지는 없고 세션만 등록됨
+        // then: 세션만 등록됨, 클라이언트로 전송되는 메시지 없음
         Thread.sleep(500);
         assertThat(receivedMessages).isEmpty();
         assertThat(chatRoomManager.getWebSocketSessionBy(chatRoomId)).contains(serverSession);
@@ -127,7 +127,7 @@ public class ChatRoomServiceSocketTest {
 
         // when
         WebSocketSession serverSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
-        chatRoomService.connectChatRoomSocket(serverSession, firstId, chatRoomId);
+        chatRoomManager.addSessionToRoom(serverSession, chatRoomId);
 
         // then: CHAT_ENTER 미전송, 세션 등록 여부만 확인
         Thread.sleep(500);
@@ -169,9 +169,9 @@ public class ChatRoomServiceSocketTest {
         socketFixture.connectSocket(secondJSessionId, secondId, port, secondMessages, latch);
 
         WebSocketSession firstServerSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
-        chatRoomService.connectChatRoomSocket(firstServerSession, firstId, chatRoomId);
+        chatRoomManager.addSessionToRoom(firstServerSession, chatRoomId);
         WebSocketSession secondServerSession = websocketSessionManager.getSessionBy(secondId).iterator().next();
-        chatRoomService.connectChatRoomSocket(secondServerSession, secondId, chatRoomId);
+        chatRoomManager.addSessionToRoom(secondServerSession, chatRoomId);
 
         String message = "message";
         SendChat sendChat = SendChat
@@ -232,9 +232,9 @@ public class ChatRoomServiceSocketTest {
         socketFixture.connectSocket(secondJSessionId, secondId, port, secondMessages, latch);
 
         WebSocketSession firstServerSession = websocketSessionManager.getSessionBy(firstId).iterator().next();
-        chatRoomService.connectChatRoomSocket(firstServerSession, firstId, chatRoomId);
+        chatRoomManager.addSessionToRoom(firstServerSession, chatRoomId);
         WebSocketSession secondServerSession = websocketSessionManager.getSessionBy(secondId).iterator().next();
-        chatRoomService.connectChatRoomSocket(secondServerSession, secondId, chatRoomId);
+        chatRoomManager.addSessionToRoom(secondServerSession, chatRoomId);
 
         // SendChat에 chatRoomId, message만 포함 — senderId, senderNickname 없음
         SendChat sendChat = SendChat
@@ -337,8 +337,8 @@ public class ChatRoomServiceSocketTest {
         socketFixture.connectSocket(secondJSessionId, secondId, port, secondMessages, latch);
 
         WebSocketSession secondServerSession = websocketSessionManager.getSessionBy(secondId).iterator().next();
-        chatRoomService.connectChatRoomSocket(secondServerSession, secondId, chatRoomId);
-        Thread.sleep(500); // AFTER_COMMIT 대기
+        chatRoomManager.addSessionToRoom(secondServerSession, chatRoomId);
+        Thread.sleep(500);
 
         // when: getChatHistory 호출 후 broadcastAfterRead 호출하는 상황 시뮬레이션
         // second가 처음 입장이므로 lastReadChatId = null
@@ -402,7 +402,7 @@ public class ChatRoomServiceSocketTest {
         socketFixture.connectSocket(secondJSessionId, secondId, port, secondMessages, latch);
 
         WebSocketSession secondServerSession = websocketSessionManager.getSessionBy(secondId).iterator().next();
-        chatRoomService.connectChatRoomSocket(secondServerSession, secondId, chatRoomId);
+        chatRoomManager.addSessionToRoom(secondServerSession, chatRoomId);
         Thread.sleep(500);
 
         // when: 두 번째 입장 → lastReadChatId = firstChatId (이전에 firstChat까지 읽었음)

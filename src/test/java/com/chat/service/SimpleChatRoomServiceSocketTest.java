@@ -108,7 +108,7 @@ public class SimpleChatRoomServiceSocketTest {
 
         // when
         WebSocketSession serverSession = websocketSessionManager.getSessionBy(encryptMemberId).iterator().next();
-        chatRoomService.connectChatRoomSocket(serverSession, encryptMemberId, chatRoomId);
+        chatRoomManager.addSessionToRoom(serverSession, chatRoomId);
 
         // then: CHAT_ENTER 미전송, 세션이 방에 등록되었는지 확인
         Thread.sleep(500);
@@ -143,9 +143,9 @@ public class SimpleChatRoomServiceSocketTest {
         Long chatRoomId = chatRoom.getId();
 
         WebSocketSession firstServerSession = websocketSessionManager.getSessionBy(firstMemberId).iterator().next();
-        chatRoomService.connectChatRoomSocket(firstServerSession, firstMemberId, chatRoomId);
+        chatRoomManager.addSessionToRoom(firstServerSession, chatRoomId);
         WebSocketSession secondServerSession = websocketSessionManager.getSessionBy(secondMemberId).iterator().next();
-        chatRoomService.connectChatRoomSocket(secondServerSession, secondMemberId, chatRoomId);
+        chatRoomManager.addSessionToRoom(secondServerSession, chatRoomId);
 
         String message = "message";
         fixture.savedSimpleChat(message, firstMember, chatRoom);
