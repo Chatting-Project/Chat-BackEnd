@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -111,6 +112,55 @@ class BroadcastDataBuilderTest {
         // then
         assertThat(result.get(me.getId()).getUnreadMessageCount()).isEqualTo(2L);
         assertThat(result.get(other.getId()).getUnreadMessageCount()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("targetMemberIds가 빈 Set이면 빈 Map을 반환한다.")
+    void buildWithTarget_emptyTargetIds_returnsEmptyMap() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me));
+
+        // when
+        Map<Long, UpdateChatRoom> result = broadcastDataBuilder.build(chatRoom.getId(), Set.of());
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("targetMemberIds에 포함된 멤버만 Map에 담긴다.")
+    void buildWithTarget_onlyTargetMembersIncluded() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, other));
+
+        // when: me만 타겟
+        Map<Long, UpdateChatRoom> result = broadcastDataBuilder.build(chatRoom.getId(), Set.of(me.getId()));
+
+        // then
+        assertThat(result).hasSize(1);
+        assertThat(result).containsKey(me.getId());
+        assertThat(result).doesNotContainKey(other.getId());
+    }
+
+    @Test
+    @DisplayName("targetMemberIds 멤버의 unreadMessageCount가 정확히 담긴다.")
+    void buildWithTarget_returnsCorrectUnreadCount() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, other));
+
+        Chat chat = fixture.savedSimpleChat("msg", other, chatRoom);
+        chatReadRepository.save(new ChatRead(false, me, chat));
+
+        // when: me만 타겟
+        Map<Long, UpdateChatRoom> result = broadcastDataBuilder.build(chatRoom.getId(), Set.of(me.getId()));
+
+        // then
+        assertThat(result.get(me.getId()).getUnreadMessageCount()).isEqualTo(1L);
     }
 
     @Test
