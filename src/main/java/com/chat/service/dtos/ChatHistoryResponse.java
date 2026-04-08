@@ -9,9 +9,11 @@ public class ChatHistoryResponse {
 
     private Long lastReadChatId;
     private List<ChatHistory> messages;
+    private boolean hasMore;
 
-    public ChatHistoryResponse(Long lastReadChatId, List<ChatHistory> messages) {
+    public ChatHistoryResponse(Long lastReadChatId, List<ChatHistory> messages, boolean hasMore) {
         this.lastReadChatId = lastReadChatId;
         this.messages = messages;
+        this.hasMore = hasMore;
     }
 }

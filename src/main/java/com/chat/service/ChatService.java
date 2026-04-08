@@ -15,13 +15,11 @@ import com.chat.socket.manager.ChatRoomManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,6 +27,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChatService {
+
+    private static final int PAGE_SIZE = 30;
 
     private final ApplicationEventPublisher publisher;
 
@@ -91,39 +91,62 @@ public class ChatService {
     }
 
     @Transactional
-    public ChatHistoryResponse findChatHistory(Long chatRoomId, Long memberId) {
+    public ChatHistoryResponse findChatHistory(Long chatRoomId, Long memberId, Long beforeChatId) {
 
         Member findMember = memberRepository.findById(memberId).orElseThrow(
                 () -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)
         );
 
-        return createChatHistoryResponse(chatRoomId, findMember.getId());
+        return createChatHistoryResponse(chatRoomId, findMember.getId(), beforeChatId);
     }
 
-    private ChatHistoryResponse createChatHistoryResponse(Long chatRoomId, Long memberId) {
-        List<Chat> chats = chatRepository.findChatHistory(chatRoomId);
+    private ChatHistoryResponse createChatHistoryResponse(Long chatRoomId, Long memberId, Long beforeChatId) {
+
+        PageRequest pageable = PageRequest.of(0, PAGE_SIZE + 1);
+        List<Chat> chats;
+
+        if (beforeChatId == null) {
+            chats = chatRepository.findLatestChats(chatRoomId, pageable);
+        } else {
+            chats = chatRepository.findChatsBeforeId(chatRoomId, beforeChatId, pageable);
+        }
 
         if (chats.isEmpty()) {
-            return new ChatHistoryResponse(null, List.of());
+            return new ChatHistoryResponse(null, List.of(), false);
         }
+
+        boolean hasMore = chats.size() > PAGE_SIZE;
+        if (hasMore) {
+            chats = new ArrayList<>(chats.subList(0, PAGE_SIZE));
+        } else {
+            chats = new ArrayList<>(chats);
+        }
+        Collections.reverse(chats);
 
         List<Long> chatIds = chats.stream()
                 .map(Chat::getId)
                 .toList();
 
-        LastChatRead lastChatRead = chatReadRepository.findLastReadChatBy(memberId, chatRoomId)
-                .stream().findFirst().orElse(null);
-        Long lastReadChatId = lastChatRead != null ? lastChatRead.getLastChatReadId() : null;
+        Long lastReadChatId = null;
 
-        int updatedCount = chatReadRepository.updateUnreadChatReadsToRead(memberId, chatRoomId);
-        if (updatedCount > 0) {
-            Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId, Set.of(memberId));
-            publisher.publishEvent(new PublishReadEvent(
-                    memberId,
-                    chatRoomId,
-                    lastReadChatId,
-                    updatesByMemberId
-            ));
+        if (beforeChatId == null) {
+            LastChatRead lastChatRead = chatReadRepository
+                    .findLastReadChatBy(memberId, chatRoomId)
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            lastReadChatId = lastChatRead != null ? lastChatRead.getLastChatReadId() : null;
+
+            int updatedCount = chatReadRepository.updateUnreadChatReadsToRead(memberId, chatRoomId);
+            if (updatedCount > 0) {
+                Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId, Set.of(memberId));
+                publisher.publishEvent(new PublishReadEvent(
+                        memberId,
+                        chatRoomId,
+                        lastReadChatId,
+                        updatesByMemberId
+                ));
+            }
         }
 
         Map<Long, Long> unreadMemberCountMap = chatReadRepository.countUnreadByChatIds(chatIds).stream()
@@ -147,6 +170,6 @@ public class ChatService {
                     .build());
         }
 
-        return new ChatHistoryResponse(lastReadChatId, messages);
+        return new ChatHistoryResponse(lastReadChatId, messages, hasMore);
     }
 }
