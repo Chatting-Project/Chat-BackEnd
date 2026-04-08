@@ -134,7 +134,7 @@ class ChatServiceTest {
         chatService.saveChat(secondMember.getId(), chatRoomId, "thirdMessage");
 
         // when
-        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, firstMember.getId());
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, firstMember.getId(), null);
 
         // then
         List<ChatHistory> messages = response.getMessages();
@@ -209,7 +209,7 @@ class ChatServiceTest {
         ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
 
         // when
-        ChatHistoryResponse response = chatService.findChatHistory(chatRoom.getId(), firstMember.getId());
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoom.getId(), firstMember.getId(), null);
 
         // then
         assertThat(response.getMessages()).isEmpty();
@@ -229,14 +229,14 @@ class ChatServiceTest {
         chatService.saveChat(firstMember.getId(), chatRoomId, "message");
 
         // 첫 번째 입장: secondMember의 미읽음 1개 → 읽음 처리
-        chatService.findChatHistory(chatRoomId, secondMember.getId());
+        chatService.findChatHistory(chatRoomId, secondMember.getId(), null);
 
         List<MemberUnreadCount> afterFirst = chatReadRepository
                 .findUnReadCountsBy(chatRoomId, List.of(secondMember.getId()));
         assertThat(afterFirst).isEmpty();
 
         // when: 재입장 — 이미 모두 읽음 처리된 상태
-        chatService.findChatHistory(chatRoomId, secondMember.getId());
+        chatService.findChatHistory(chatRoomId, secondMember.getId(), null);
 
         // then: 재입장 후에도 미읽음 없음
         List<MemberUnreadCount> afterSecond = chatReadRepository
@@ -257,7 +257,7 @@ class ChatServiceTest {
         Long firstChatId = chatService.saveChat(firstMember.getId(), chatRoomId, "message");
 
         // when: secondMember 입장 — 미읽음 1개 존재
-        chatService.findChatHistory(chatRoomId, secondMember.getId());
+        chatService.findChatHistory(chatRoomId, secondMember.getId(), null);
 
         // then: PublishReadEvent 1건 발행, 필드값 검증
         List<PublishReadEvent> publishedEvents = events.stream(PublishReadEvent.class).toList();
@@ -274,6 +274,172 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("초기 진입 시 메시지가 PAGE_SIZE를 초과하면 hasMore=true를 반환한다.")
+    void findChatHistory_initialLoad_hasMoreTrueTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        for (int i = 0; i < 31; i++) {
+            chatService.saveChat(member.getId(), chatRoomId, "message" + i);
+        }
+
+        // when
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, member.getId(), null);
+
+        // then
+        assertThat(response.getMessages()).hasSize(30);
+        assertThat(response.isHasMore()).isTrue();
+    }
+
+    @Test
+    @DisplayName("초기 진입 시 메시지가 PAGE_SIZE 이하면 hasMore=false를 반환한다.")
+    void findChatHistory_initialLoad_hasMoreFalseTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        for (int i = 0; i < 5; i++) {
+            chatService.saveChat(member.getId(), chatRoomId, "message" + i);
+        }
+
+        // when
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, member.getId(), null);
+
+        // then
+        assertThat(response.getMessages()).hasSize(5);
+        assertThat(response.isHasMore()).isFalse();
+    }
+
+    @Test
+    @DisplayName("초기 진입 시 메시지는 오래된 순으로 반환된다.")
+    void findChatHistory_initialLoad_messagesInAscendingOrderTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        Long firstChatId = chatService.saveChat(member.getId(), chatRoomId, "first");
+        Long secondChatId = chatService.saveChat(member.getId(), chatRoomId, "second");
+        Long thirdChatId = chatService.saveChat(member.getId(), chatRoomId, "third");
+
+        // when
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, member.getId(), null);
+
+        // then
+        List<ChatHistory> messages = response.getMessages();
+        assertThat(messages).hasSize(3);
+        assertThat(messages.get(0).getChatId()).isEqualTo(firstChatId);
+        assertThat(messages.get(1).getChatId()).isEqualTo(secondChatId);
+        assertThat(messages.get(2).getChatId()).isEqualTo(thirdChatId);
+    }
+
+    @Test
+    @DisplayName("커서 기반 조회는 beforeChatId보다 오래된 메시지를 오래된 순으로 반환한다.")
+    void findChatHistory_cursorLoad_returnsMessagesBeforeCursorTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        Long firstChatId = chatService.saveChat(member.getId(), chatRoomId, "first");
+        Long secondChatId = chatService.saveChat(member.getId(), chatRoomId, "second");
+        Long thirdChatId = chatService.saveChat(member.getId(), chatRoomId, "third");
+
+        // when: thirdChatId를 커서로 → first, second만 반환
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, member.getId(), thirdChatId);
+
+        // then
+        List<ChatHistory> messages = response.getMessages();
+        assertThat(messages).hasSize(2);
+        assertThat(messages.get(0).getChatId()).isEqualTo(firstChatId);
+        assertThat(messages.get(1).getChatId()).isEqualTo(secondChatId);
+    }
+
+    @Test
+    @DisplayName("커서 기반 조회 시 읽음 처리를 수행하지 않는다.")
+    void findChatHistory_cursorLoad_doesNotUpdateReadStatusTest() {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiver = fixture.savedMemberBy("receiver");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(sender, receiver));
+        Long chatRoomId = chatRoom.getId();
+
+        chatService.saveChat(sender.getId(), chatRoomId, "first");
+        chatService.saveChat(sender.getId(), chatRoomId, "second");
+        Long thirdChatId = chatService.saveChat(sender.getId(), chatRoomId, "third");
+
+        // when: receiver가 커서로 이전 메시지 조회
+        chatService.findChatHistory(chatRoomId, receiver.getId(), thirdChatId);
+
+        // then: receiver의 미읽음 상태 그대로 (읽음 처리 안 됨)
+        List<MemberUnreadCount> after = chatReadRepository
+                .findUnReadCountsBy(chatRoomId, List.of(receiver.getId()));
+        assertThat(after).isNotEmpty();
+        assertThat(after.get(0).getUnreadMemberCount()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("커서 기반 조회 시 lastReadChatId는 null을 반환한다.")
+    void findChatHistory_cursorLoad_lastReadChatIdIsNullTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        chatService.saveChat(member.getId(), chatRoomId, "first");
+        Long secondChatId = chatService.saveChat(member.getId(), chatRoomId, "second");
+
+        // when
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, member.getId(), secondChatId);
+
+        // then
+        assertThat(response.getLastReadChatId()).isNull();
+    }
+
+    @Test
+    @DisplayName("커서 이전 메시지가 PAGE_SIZE를 초과하면 hasMore=true를 반환한다.")
+    void findChatHistory_cursorLoad_hasMoreTrueTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        // 32개 저장 후 마지막 id를 커서로 → 이전 31개 존재 → hasMore=true
+        Long cursorChatId = null;
+        for (int i = 0; i < 32; i++) {
+            cursorChatId = chatService.saveChat(member.getId(), chatRoomId, "message" + i);
+        }
+
+        // when
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, member.getId(), cursorChatId);
+
+        // then
+        assertThat(response.getMessages()).hasSize(30);
+        assertThat(response.isHasMore()).isTrue();
+    }
+
+    @Test
+    @DisplayName("커서 이전 메시지가 없으면 빈 리스트와 hasMore=false를 반환한다.")
+    void findChatHistory_cursorLoad_noPreviousMessages_returnsEmptyTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        Long firstChatId = chatService.saveChat(member.getId(), chatRoomId, "only message");
+
+        // when: 첫 번째 메시지를 커서로 → 이전 메시지 없음
+        ChatHistoryResponse response = chatService.findChatHistory(chatRoomId, member.getId(), firstChatId);
+
+        // then
+        assertThat(response.getMessages()).isEmpty();
+        assertThat(response.isHasMore()).isFalse();
+    }
+
+    @Test
     @DisplayName("읽지 않은 메시지가 없으면 PublishReadEvent가 발행되지 않는다.")
     void findChatHistory_noUnread_doesNotPublishReadEvent(ApplicationEvents events) {
         // given
@@ -286,10 +452,10 @@ class ChatServiceTest {
         chatService.saveChat(firstMember.getId(), chatRoomId, "message");
 
         // 첫 번째 입장: 미읽음 읽음 처리 → 이벤트 발행됨
-        chatService.findChatHistory(chatRoomId, secondMember.getId());
+        chatService.findChatHistory(chatRoomId, secondMember.getId(), null);
 
         // when: 재입장 — 미읽음 없음
-        chatService.findChatHistory(chatRoomId, secondMember.getId());
+        chatService.findChatHistory(chatRoomId, secondMember.getId(), null);
 
         // then: 두 번 호출했지만 이벤트는 첫 번째 호출에서만 1건 발행
         long eventCount = events.stream(PublishReadEvent.class).count();
