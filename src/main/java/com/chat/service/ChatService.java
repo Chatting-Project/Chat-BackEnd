@@ -79,15 +79,16 @@ public class ChatService {
 
         // 읽음 저장: 발신자=true, 방에 접속 중인 멤버=true, 나머지=false
         List<ChatRoomParticipant> findChatRoomParticipants
-                = chatRoomParticipantRepository
-                .findAllFetchMemberBy(chatRoomId);
+                = chatRoomParticipantRepository.findAllFetchMemberBy(chatRoomId);
 
-        for (ChatRoomParticipant findChatRoomParticipant : findChatRoomParticipants) {
-            Member participant = findChatRoomParticipant.getMember();
-            boolean isRead = participant.getId().equals(senderId)
-                    || chatRoomManager.isInRoom(chatRoomId, participant.getId());
-            chatReadRepository.save(new ChatRead(isRead, participant, chat));
-        }
+        List<ChatRead> chatReads = findChatRoomParticipants.stream()
+                .map(crp -> {
+                    boolean isRead = crp.getMember().getId().equals(senderId)
+                            || chatRoomManager.isInRoom(chatRoomId, crp.getMember().getId());
+                    return new ChatRead(isRead, crp.getMember(), chat);
+                })
+                .toList();
+        chatReadRepository.saveAll(chatReads);
     }
 
     @Transactional
