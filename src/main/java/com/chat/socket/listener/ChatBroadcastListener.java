@@ -1,7 +1,5 @@
 package com.chat.socket.listener;
 
-import com.chat.exception.CustomException;
-import com.chat.exception.ErrorCode;
 import com.chat.service.dtos.chat.ReadEvent;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.chat.socket.event.PublishMessageEvent;
@@ -12,6 +10,7 @@ import com.chat.socket.manager.WebsocketSessionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -31,12 +30,14 @@ public class ChatBroadcastListener {
     private final WebsocketSessionManager websocketSessionManager;
     private final ObjectMapper objectMapper;
 
+    @Async("broadcastExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void publishMessageToSessions(PublishMessageEvent event) {
         sendToRoomSessions(event.getChatRoomId(), event.getBroadcastChat());
         sendUpdateChatRoom(event.getUpdatesByMemberId());
     }
 
+    @Async("broadcastExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void publishReadEventToSessions(PublishReadEvent event) {
         ReadEvent readEvent = new ReadEvent(event.getMemberId(), event.getChatRoomId(), event.getLastReadChatId());
@@ -44,6 +45,7 @@ public class ChatBroadcastListener {
         sendUpdateChatRoom(event.getUpdatesByMemberId());
     }
 
+    @Async("broadcastExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void publishUpdateEventToSessions(PublishUpdateEvent event) {
         sendUpdateChatRoom(event.getUpdatesByMemberId());
@@ -69,7 +71,8 @@ public class ChatBroadcastListener {
         try {
             message = objectMapper.writeValueAsString(payload);
         } catch (IOException e) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_BROADCAST_IO_EXCEPTION);
+            log.error("JSON 직렬화 실패: payload={}", payload.getClass().getSimpleName(), e);
+            return;
         }
 
         for (WebSocketSession session : sessions) {
