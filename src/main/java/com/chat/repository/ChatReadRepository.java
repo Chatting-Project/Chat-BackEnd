@@ -16,8 +16,7 @@ public interface ChatReadRepository extends JpaRepository<ChatRead, Long> {
 
     @Query("SELECT COUNT (cre)" +
             " FROM ChatRead cre" +
-            " JOIN Chat c ON cre.chat.id = c.id" +
-            " WHERE c.id = :chatId" +
+            " WHERE cre.chat.id = :chatId" +
             " AND cre.isRead = false")
     Long findUnReadCountBy(@Param("chatId") Long chatId);
 

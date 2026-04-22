@@ -12,10 +12,10 @@ public interface ChatRepository extends JpaRepository<Chat, Long> {
 
     @Query("SELECT c" +
             " FROM Chat c" +
-            " JOIN FETCH c.member" +
-            " WHERE c.chatRoom.id = :chatRoomId ORDER BY c.createdDate DESC")
+            " WHERE c.chatRoom.id = :chatRoomId ORDER BY c.id DESC")
     List<Chat> findLastChatBy(@Param("chatRoomId") Long chatRoomId, Pageable pageable);
 
+    // todo delete (no usage)
     @Query("SELECT c" +
             " FROM Chat c" +
             " JOIN FETCH c.member" +
