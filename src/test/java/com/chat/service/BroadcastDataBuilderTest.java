@@ -1,13 +1,12 @@
 package com.chat.service;
 
 import com.chat.entity.Chat;
-import com.chat.entity.ChatRead;
 import com.chat.entity.ChatRoom;
 import com.chat.entity.Member;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.fixture.TestDataFixture;
-import com.chat.repository.ChatReadRepository;
+import com.chat.repository.ChatRoomParticipantRepository;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -31,7 +30,7 @@ class BroadcastDataBuilderTest {
     @Autowired
     private BroadcastDataBuilder broadcastDataBuilder;
     @Autowired
-    private ChatReadRepository chatReadRepository;
+    private ChatRoomParticipantRepository chatRoomParticipantRepository;
     @Autowired
     private TestDataFixture fixture;
     @PersistenceContext
@@ -97,14 +96,17 @@ class BroadcastDataBuilderTest {
         // given
         Member me = fixture.savedMemberBy("me");
         Member other = fixture.savedMemberBy("other");
-        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, other));
+        Member sender = fixture.savedMemberBy("sender");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, other, sender));
 
-        Chat first = fixture.savedSimpleChat("msg1", other, chatRoom);
-        Chat second = fixture.savedSimpleChat("msg2", other, chatRoom);
+        Chat first = fixture.savedSimpleChat("msg1", sender, chatRoom);
+        fixture.savedSimpleChat("msg2", sender, chatRoom);
 
-        chatReadRepository.save(new ChatRead(false, me, first));
-        chatReadRepository.save(new ChatRead(false, me, second));
-        chatReadRepository.save(new ChatRead(false, other, first));
+        // me: cursor null → 2개 unread
+        // other: cursor = first → second만 1개 unread
+        chatRoomParticipantRepository.updateLastReadChatId(
+                other.getId(), chatRoom.getId(), first.getId());
+        em.flush(); em.clear();
 
         // when
         Map<Long, UpdateChatRoom> result = broadcastDataBuilder.build(chatRoom.getId());
@@ -150,11 +152,11 @@ class BroadcastDataBuilderTest {
     void buildWithTarget_returnsCorrectUnreadCount() {
         // given
         Member me = fixture.savedMemberBy("me");
-        Member other = fixture.savedMemberBy("other");
-        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, other));
+        Member sender = fixture.savedMemberBy("sender");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me, sender));
 
-        Chat chat = fixture.savedSimpleChat("msg", other, chatRoom);
-        chatReadRepository.save(new ChatRead(false, me, chat));
+        fixture.savedSimpleChat("msg", sender, chatRoom);
+        // me: cursor null → 1개 unread
 
         // when: me만 타겟
         Map<Long, UpdateChatRoom> result = broadcastDataBuilder.build(chatRoom.getId(), Set.of(me.getId()));

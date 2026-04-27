@@ -5,6 +5,7 @@ import com.chat.entity.ChatRoom;
 import com.chat.entity.ChatRoomParticipant;
 import com.chat.entity.Member;
 import com.chat.repository.dtos.ChatRoomUnreadCount;
+import com.chat.repository.dtos.MemberUnreadCount;
 import jakarta.persistence.EntityManager;
 import org.hibernate.Session;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -375,6 +377,47 @@ class ChatRoomParticipantRepositoryTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getUnreadMessageCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("방 내 여러 멤버의 cursor 기반 미읽음 수를 일괄 조회한다.")
+    void findCursorUnreadCountsByMembersTest() {
+        // given
+        Member me = createMemberBy("me");
+        Member other = createMemberBy("other");
+        Member sender = createMemberBy("sender");
+        ChatRoom chatRoom = createChatRoomBy("room");
+
+        chatRoomParticipantRepository.save(
+                ChatRoomParticipant.builder().member(me).chatRoom(chatRoom).build());
+        chatRoomParticipantRepository.save(
+                ChatRoomParticipant.builder().member(other).chatRoom(chatRoom).build());
+        chatRoomParticipantRepository.save(
+                ChatRoomParticipant.builder().member(sender).chatRoom(chatRoom).build());
+
+        Chat first = chatRepository.save(new Chat("msg1", sender, chatRoom));
+        chatRepository.save(new Chat("msg2", sender, chatRoom));
+
+        // me: cursor null → 전체 2개 unread
+        // other: cursor = first → second만 1개 unread
+        chatRoomParticipantRepository.updateLastReadChatId(
+                other.getId(), chatRoom.getId(), first.getId());
+        em.flush(); em.clear();
+
+        // when
+        List<MemberUnreadCount> result = chatRoomParticipantRepository
+                .findCursorUnreadCountsByMembers(
+                        chatRoom.getId(),
+                        List.of(me.getId(), other.getId()));
+
+        // then
+        Map<Long, Long> countMap = result.stream()
+                .collect(Collectors.toMap(
+                        MemberUnreadCount::getMemberId,
+                        MemberUnreadCount::getUnreadMemberCount));
+
+        assertThat(countMap.get(me.getId())).isEqualTo(2L);
+        assertThat(countMap.get(other.getId())).isEqualTo(1L);
     }
 
     private Member createMemberBy(String username) {
