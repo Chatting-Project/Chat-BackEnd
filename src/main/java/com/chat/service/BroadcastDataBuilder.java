@@ -4,10 +4,7 @@ import com.chat.entity.Chat;
 import com.chat.entity.ChatRoom;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
-import com.chat.repository.ChatReadRepository;
-import com.chat.repository.ChatRepository;
-import com.chat.repository.ChatRoomRepository;
-import com.chat.repository.MemberRepository;
+import com.chat.repository.*;
 import com.chat.repository.dtos.MemberUnreadCount;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.chat.utils.message.MessageType;
@@ -27,7 +24,7 @@ public class BroadcastDataBuilder {
     private final MemberRepository memberRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRepository chatRepository;
-    private final ChatReadRepository chatReadRepository;
+    private final ChatRoomParticipantRepository chatRoomParticipantRepository;
 
     public Map<Long, UpdateChatRoom> build(Long chatRoomId) {
         if (chatRoomId == null) return Map.of();
@@ -51,8 +48,8 @@ public class BroadcastDataBuilder {
                 .findLastChatBy(chatRoomId, PageRequest.of(0, 1))
                 .stream().findFirst().orElse(null);
 
-        Map<Long, Long> unreadCountMap = chatReadRepository
-                .findUnReadCountsBy(chatRoomId, new ArrayList<>(targetMemberIds))
+        Map<Long, Long> unreadCountMap = chatRoomParticipantRepository
+                .findCursorUnreadCountsByMembers(chatRoomId, new ArrayList<>(targetMemberIds))
                 .stream()
                 .collect(Collectors.toMap(
                         MemberUnreadCount::getMemberId,
