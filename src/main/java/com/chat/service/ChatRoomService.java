@@ -44,7 +44,6 @@ public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
     private final ChatRepository chatRepository;
-    private final ChatReadRepository chatReadRepository;
     private final MemberRepository memberRepository;
 
     @Transactional
@@ -191,8 +190,8 @@ public class ChatRoomService {
                 ));
 
         // 채팅방별 안 읽은 메시지 수 일괄 조회
-        Map<Long, Long> unreadMessageCountMap = chatReadRepository
-                .findChatRoomUnreadCountsBy(chatRoomIds, memberId)
+        Map<Long, Long> unreadMessageCountMap = chatRoomParticipantRepository
+                .findCursorUnreadCountsBy(chatRoomIds, memberId)
                 .stream()
                 .collect(Collectors.toMap(
                         ChatRoomUnreadCount::getChatRoomId,
