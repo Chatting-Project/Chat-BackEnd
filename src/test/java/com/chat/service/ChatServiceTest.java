@@ -572,4 +572,34 @@ class ChatServiceTest {
                 .findChatRoomBy(chatRoom.getId(), me.getId());
         assertThat(participant.getLastReadChatId()).isNull();
     }
+
+    @Test
+    @DisplayName("메시지 전송 시 방에 접속 중인 수신자의 cursor가 갱신된다.")
+    void saveChat_inRoomReceiverCursorUpdatedTest() {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiverInRoom = fixture.savedMemberBy("receiverInRoom");
+        Member receiverNotInRoom = fixture.savedMemberBy("receiverNotInRoom");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room",
+                List.of(sender, receiverInRoom, receiverNotInRoom));
+
+        // receiverInRoom을 방에 접속 중 상태로 설정
+        WebSocketSession mockSession = mock(WebSocketSession.class);
+        given(mockSession.getAttributes())
+                .willReturn(Map.of(SessionConst.SESSION_ID, receiverInRoom.getId()));
+        chatRoomManager.addSessionToRoom(mockSession, chatRoom.getId());
+
+        // when
+        Long savedChatId = chatService.saveChat(sender.getId(), chatRoom.getId(), "hello");
+        em.clear();
+
+        // then
+        ChatRoomParticipant inRoomParticipant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoom.getId(), receiverInRoom.getId());
+        assertThat(inRoomParticipant.getLastReadChatId()).isEqualTo(savedChatId);
+
+        ChatRoomParticipant notInRoomParticipant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoom.getId(), receiverNotInRoom.getId());
+        assertThat(notInRoomParticipant.getLastReadChatId()).isNull();
+    }
 }
