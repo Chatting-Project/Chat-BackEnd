@@ -2,6 +2,7 @@ package com.chat.repository;
 
 import com.chat.entity.ChatRoomParticipant;
 import com.chat.repository.dtos.ChatRoomUnreadCount;
+import com.chat.repository.dtos.MemberUnreadCount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -72,4 +73,14 @@ public interface ChatRoomParticipantRepository extends JpaRepository<ChatRoomPar
             " GROUP BY crp.chatRoom.id")
     List<ChatRoomUnreadCount> findCursorUnreadCountsBy(@Param("chatRoomIds") List<Long> chatRoomIds,
                                                        @Param("memberId") Long memberId);
+
+    @Query("SELECT new com.chat.repository.dtos.MemberUnreadCount(crp.member.id, COUNT(c))" +
+            " FROM ChatRoomParticipant crp" +
+            " JOIN Chat c ON c.chatRoom.id = crp.chatRoom.id" +
+            " WHERE crp.chatRoom.id = :chatRoomId" +
+            " AND crp.member.id IN :memberIds" +
+            " AND (crp.lastReadChatId IS NULL OR c.id > crp.lastReadChatId)" +
+            " GROUP BY crp.member.id")
+    List<MemberUnreadCount> findCursorUnreadCountsByMembers(@Param("chatRoomId") Long chatRoomId,
+                                                            @Param("memberIds") List<Long> memberIds);
 }
