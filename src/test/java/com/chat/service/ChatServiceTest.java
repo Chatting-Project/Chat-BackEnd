@@ -10,6 +10,7 @@ import com.chat.service.dtos.SaveChatData;
 import com.chat.socket.event.PublishReadEvent;
 import com.chat.socket.manager.ChatRoomManager;
 import com.chat.utils.consts.SessionConst;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,9 +41,13 @@ class ChatServiceTest {
     @Autowired
     private ChatReadRepository chatReadRepository;
     @Autowired
+    private ChatRoomParticipantRepository chatRoomParticipantRepository;
+    @Autowired
     private TestDataFixture fixture;
     @Autowired
     private ChatRoomManager chatRoomManager;
+    @Autowired
+    private EntityManager em;
 
     @AfterEach
     void tearDown() {
@@ -460,5 +465,111 @@ class ChatServiceTest {
         // then: 두 번 호출했지만 이벤트는 첫 번째 호출에서만 1건 발행
         long eventCount = events.stream(PublishReadEvent.class).count();
         assertThat(eventCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("메시지 전송 시 sender의 lastReadChatId가 저장된 chatId로 갱신된다.")
+    void saveChat_senderCursorUpdatedTest() {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiver = fixture.savedMemberBy("receiver");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(sender, receiver));
+
+        // when
+        Long savedChatId = chatService.saveChat(sender.getId(), chatRoom.getId(), "hello");
+        em.clear();
+
+        // then
+        ChatRoomParticipant senderParticipant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoom.getId(), sender.getId());
+        assertThat(senderParticipant.getLastReadChatId()).isEqualTo(savedChatId);
+    }
+
+    @Test
+    @DisplayName("메시지 전송 시 receiver의 lastReadChatId는 갱신되지 않는다.")
+    void saveChat_receiverCursorNotUpdatedTest() {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiver = fixture.savedMemberBy("receiver");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(sender, receiver));
+
+        // when
+        chatService.saveChat(sender.getId(), chatRoom.getId(), "hello");
+        em.clear();
+
+        // then
+        ChatRoomParticipant receiverParticipant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoom.getId(), receiver.getId());
+        assertThat(receiverParticipant.getLastReadChatId()).isNull();
+    }
+
+    @Test
+    @DisplayName("초기 history 조회 시 조회자의 lastReadChatId가 최신 chatId로 갱신된다.")
+    void findChatHistory_initialLoad_cursorUpdatedTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(me, other));
+        Long chatRoomId = chatRoom.getId();
+
+        chatService.saveChat(other.getId(), chatRoomId, "first");
+        Long latestChatId = chatService.saveChat(other.getId(), chatRoomId, "second");
+
+        // when
+        chatService.findChatHistory(chatRoomId, me.getId(), null);
+        em.clear();
+
+        // then
+        ChatRoomParticipant participant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoomId, me.getId());
+        assertThat(participant.getLastReadChatId()).isEqualTo(latestChatId);
+    }
+
+    @Test
+    @DisplayName("페이지네이션 history 조회 시 lastReadChatId는 갱신되지 않는다.")
+    void findChatHistory_pagination_cursorNotUpdatedTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(me, other));
+        Long chatRoomId = chatRoom.getId();
+
+        // other가 메시지 2개 전송 → me는 receiver, cursor 갱신 없음
+        chatService.saveChat(other.getId(), chatRoomId, "first");
+        Long secondChatId = chatService.saveChat(other.getId(), chatRoomId, "second");
+
+        // 초기 조회로 me cursor를 secondChatId로 세팅
+        chatService.findChatHistory(chatRoomId, me.getId(), null);
+        em.clear();
+
+        // other가 세 번째 메시지 전송 → me cursor: secondChatId 유지 (receiver)
+        Long thirdChatId = chatService.saveChat(other.getId(), chatRoomId, "third");
+        em.clear();
+
+        // when: beforeChatId != null 페이지네이션 조회
+        chatService.findChatHistory(chatRoomId, me.getId(), thirdChatId);
+        em.clear();
+
+        // then: cursor는 secondChatId 그대로 (thirdChatId로 진행하지 않음)
+        ChatRoomParticipant participant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoomId, me.getId());
+        assertThat(participant.getLastReadChatId()).isEqualTo(secondChatId);
+    }
+
+    @Test
+    @DisplayName("빈 채팅방 조회 시 lastReadChatId는 null 그대로다.")
+    void findChatHistory_emptyRoom_cursorNotUpdatedTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(me));
+
+        // when
+        chatService.findChatHistory(chatRoom.getId(), me.getId(), null);
+        em.clear();
+
+        // then
+        ChatRoomParticipant participant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoom.getId(), me.getId());
+        assertThat(participant.getLastReadChatId()).isNull();
     }
 }
