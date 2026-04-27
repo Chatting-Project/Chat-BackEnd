@@ -81,17 +81,26 @@ public class ChatService {
         List<ChatRoomParticipant> findChatRoomParticipants
                 = chatRoomParticipantRepository.findAllFetchMemberBy(chatRoomId);
 
-        List<ChatRead> chatReads = findChatRoomParticipants.stream()
-                .map(crp -> {
-                    boolean isRead = crp.getMember().getId().equals(senderId)
-                            || chatRoomManager.isInRoom(chatRoomId, crp.getMember().getId());
-                    return new ChatRead(isRead, crp.getMember(), chat);
-                })
-                .toList();
+        List<Long> readMemberIds = new ArrayList<>();
+        List<ChatRead> chatReads = new ArrayList<>();
+
+        for (ChatRoomParticipant crp : findChatRoomParticipants) {
+            Long memberId = crp.getMember().getId();
+
+            boolean isRead = memberId.equals(senderId)
+                    || chatRoomManager.isInRoom(chatRoomId, memberId);
+            if (isRead) {
+                readMemberIds.add(memberId);
+            }
+
+            chatReads.add(new ChatRead(isRead, crp.getMember(), chat));
+        }
+
         chatReadRepository.saveAll(chatReads);
 
-        // TODO: 수신자 cursor 갱신은 FE read event 정책 확정 후 진행
-        chatRoomParticipantRepository.updateLastReadChatId(senderId, chatRoomId, chat.getId());
+        for (Long memberId : readMemberIds) {
+            chatRoomParticipantRepository.updateLastReadChatId(memberId, chatRoomId, chat.getId());
+        }
     }
 
     @Transactional
