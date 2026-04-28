@@ -45,7 +45,7 @@ public class ChatService {
         Chat findChat = chatRepository.findById(chatId).orElseThrow(
                 () -> new CustomException(ErrorCode.CHAT_NOT_EXIST)
         );
-        Long unreadMemberCount = chatReadRepository.findUnReadCountBy(chatId);
+        Long unreadMemberCount = chatRoomParticipantRepository.countUnreadMembers(chatId);
 
         return SaveChatData
                 .builder()
@@ -161,7 +161,8 @@ public class ChatService {
             }
         }
 
-        Map<Long, Long> unreadMemberCountMap = chatReadRepository.countUnreadByChatIds(chatIds).stream()
+        Map<Long, Long> unreadMemberCountMap = chatRoomParticipantRepository
+                .countUnreadMembers(chatIds).stream()
                 .collect(Collectors.toMap(
                         ChatUnreadCount::getChatId,
                         ChatUnreadCount::getUnreadMemberCount

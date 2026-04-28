@@ -2,6 +2,7 @@ package com.chat.repository;
 
 import com.chat.entity.ChatRoomParticipant;
 import com.chat.repository.dtos.ChatRoomUnreadCount;
+import com.chat.repository.dtos.ChatUnreadCount;
 import com.chat.repository.dtos.MemberUnreadCount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -90,4 +91,19 @@ public interface ChatRoomParticipantRepository extends JpaRepository<ChatRoomPar
             " AND crp.chatRoom.id = :chatRoomId")
     Long findLastReadChatIdBy(@Param("memberId") Long memberId,
                               @Param("chatRoomId") Long chatRoomId);
+
+    @Query("SELECT COUNT (crp)" +
+            " FROM Chat c" +
+            " JOIN ChatRoomParticipant crp ON crp.chatRoom.id = c.chatRoom.id" +
+            " WHERE c.id = :messageId" +
+            " AND (crp.lastReadChatId IS NULL OR crp.lastReadChatId < :messageId)")
+    Long countUnreadMembers(@Param("messageId") Long messageId);
+
+    @Query("SELECT new com.chat.repository.dtos.ChatUnreadCount(c.id, COUNT(crp))" +
+            " FROM Chat c" +
+            " JOIN ChatRoomParticipant crp ON crp.chatRoom.id = c.chatRoom.id" +
+            " WHERE c.id IN :messageIds" +
+            " AND (crp.lastReadChatId IS NULL OR crp.lastReadChatId < c.id)" +
+            " GROUP BY c.id")
+    List<ChatUnreadCount> countUnreadMembers(@Param("messageIds") List<Long> messageIds);
 }
