@@ -83,4 +83,11 @@ public interface ChatRoomParticipantRepository extends JpaRepository<ChatRoomPar
             " GROUP BY crp.member.id")
     List<MemberUnreadCount> findCursorUnreadCountsByMembers(@Param("chatRoomId") Long chatRoomId,
                                                             @Param("memberIds") List<Long> memberIds);
+
+    @Query("SELECT crp.lastReadChatId" +
+            " FROM ChatRoomParticipant crp" +
+            " WHERE crp.member.id = :memberId" +
+            " AND crp.chatRoom.id = :chatRoomId")
+    Long findLastReadChatIdBy(@Param("memberId") Long memberId,
+                              @Param("chatRoomId") Long chatRoomId);
 }

@@ -7,7 +7,6 @@ import com.chat.repository.*;
 import com.chat.repository.dtos.ChatUnreadCount;
 import com.chat.service.dtos.ChatHistory;
 import com.chat.service.dtos.ChatHistoryResponse;
-import com.chat.service.dtos.LastChatRead;
 import com.chat.service.dtos.SaveChatData;
 import com.chat.service.dtos.chat.UpdateChatRoom;
 import com.chat.socket.event.PublishReadEvent;
@@ -143,12 +142,8 @@ public class ChatService {
         Long lastReadChatId = null;
 
         if (beforeChatId == null) {
-            LastChatRead lastChatRead = chatReadRepository
-                    .findLastReadChatBy(memberId, chatRoomId)
-                    .stream()
-                    .findFirst()
-                    .orElse(null);
-            lastReadChatId = lastChatRead != null ? lastChatRead.getLastChatReadId() : null;
+            lastReadChatId = chatRoomParticipantRepository
+                    .findLastReadChatIdBy(memberId, chatRoomId);
 
             int updatedCount = chatReadRepository.updateUnreadChatReadsToRead(memberId, chatRoomId);
 
