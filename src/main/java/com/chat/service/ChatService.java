@@ -36,7 +36,6 @@ public class ChatService {
     private final ChatRoomManager chatRoomManager;
 
     private final ChatRepository chatRepository;
-    private final ChatReadRepository chatReadRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
     private final MemberRepository memberRepository;
@@ -66,36 +65,26 @@ public class ChatService {
         );
 
         Chat savedChat = chatRepository.save(new Chat(message, findSender, findChatRoom));
-        saveChatRead(findSender.getId(), findChatRoom.getId(), savedChat);
+        updateCursorsOnSend(findSender.getId(), findChatRoom.getId(), savedChat);
 
         return savedChat.getId();
     }
 
-    private void saveChatRead(Long senderId, Long chatRoomId, Chat chat) {
+    private void updateCursorsOnSend(Long senderId, Long chatRoomId, Chat chat) {
 
-        // 발신자의 이전 미읽음 메시지 읽음 처리 (메시지를 보내는 행위 = 이전 메시지 모두 읽음)
-        chatReadRepository.updateUnreadChatReadsToRead(senderId, chatRoomId);
-
-        // 읽음 저장: 발신자=true, 방에 접속 중인 멤버=true, 나머지=false
         List<ChatRoomParticipant> findChatRoomParticipants
                 = chatRoomParticipantRepository.findAllFetchMemberBy(chatRoomId);
 
         List<Long> readMemberIds = new ArrayList<>();
-        List<ChatRead> chatReads = new ArrayList<>();
 
         for (ChatRoomParticipant crp : findChatRoomParticipants) {
             Long memberId = crp.getMember().getId();
-
             boolean isRead = memberId.equals(senderId)
                     || chatRoomManager.isInRoom(chatRoomId, memberId);
             if (isRead) {
                 readMemberIds.add(memberId);
             }
-
-            chatReads.add(new ChatRead(isRead, crp.getMember(), chat));
         }
-
-        chatReadRepository.saveAll(chatReads);
 
         for (Long memberId : readMemberIds) {
             chatRoomParticipantRepository.updateLastReadChatId(memberId, chatRoomId, chat.getId());
@@ -145,10 +134,9 @@ public class ChatService {
             lastReadChatId = chatRoomParticipantRepository
                     .findLastReadChatIdBy(memberId, chatRoomId);
 
-            int updatedCount = chatReadRepository.updateUnreadChatReadsToRead(memberId, chatRoomId);
-
-            chatRoomParticipantRepository.updateLastReadChatId(
-                    memberId, chatRoomId, chats.get(chats.size() - 1).getId());
+            int updatedCount = chatRoomParticipantRepository.updateLastReadChatId(
+                    memberId, chatRoomId, chats.get(chats.size() - 1).getId()
+            );
 
             if (updatedCount > 0) {
                 Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId, Set.of(memberId));
