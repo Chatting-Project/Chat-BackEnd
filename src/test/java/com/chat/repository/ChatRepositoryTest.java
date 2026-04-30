@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -298,6 +299,57 @@ class ChatRepositoryTest {
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0)).isEqualTo(targetFirst);
+    }
+
+    @Test
+    @DisplayName("메시지가 있는 채팅방의 최신 chatId를 반환한다.")
+    void findLastChatIdBy_returnsLatestChatIdTest() {
+        // given
+        Member member = createMember("user");
+        ChatRoom chatRoom = createChatRoom("room");
+
+        chatRepository.save(new Chat("first", member, chatRoom));
+        Chat latest = chatRepository.save(new Chat("second", member, chatRoom));
+
+        // when
+        Optional<Long> result = chatRepository.findLastChatIdBy(chatRoom.getId());
+
+        // then
+        assertThat(result).isPresent();
+        assertThat(result.get()).isEqualTo(latest.getId());
+    }
+
+    @Test
+    @DisplayName("메시지가 없는 채팅방은 Optional.empty를 반환한다.")
+    void findLastChatIdBy_emptyRoom_returnsEmptyTest() {
+        // given
+        ChatRoom emptyRoom = createChatRoom("empty");
+
+        // when
+        Optional<Long> result = chatRepository.findLastChatIdBy(emptyRoom.getId());
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("다른 채팅방의 메시지는 findLastChatIdBy 결과에 포함되지 않는다.")
+    void findLastChatIdBy_doesNotIncludeOtherRoomsTest() {
+        // given
+        Member member = createMember("user");
+        ChatRoom targetRoom = createChatRoom("target");
+        ChatRoom otherRoom = createChatRoom("other");
+
+        Chat targetChat = chatRepository.save(new Chat("target", member, targetRoom));
+        chatRepository.save(new Chat("other", member, otherRoom));
+        chatRepository.save(new Chat("other2", member, otherRoom));
+
+        // when
+        Optional<Long> result = chatRepository.findLastChatIdBy(targetRoom.getId());
+
+        // then
+        assertThat(result).isPresent();
+        assertThat(result.get()).isEqualTo(targetChat.getId());
     }
 
     private Member createMember(String username) {

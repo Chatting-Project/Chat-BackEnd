@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
@@ -650,5 +651,146 @@ class ChatServiceTest {
 
         // then: saveChat에서 갱신된 cursor = sentChatId
         assertThat(response.getLastReadChatId()).isEqualTo(sentChatId);
+    }
+
+    @Test
+    @DisplayName("ROOM_ACTIVE 시 inactive 동안 쌓인 메시지를 최신 chatId까지 cursor가 갱신된다.")
+    void onRoomActive_cursorAdvancedToLatestTest() {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiver = fixture.savedMemberBy("receiver");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(sender, receiver));
+        Long chatRoomId = chatRoom.getId();
+
+        // receiver: ENTER_ROOM(auto-activate) 후 ROOM_INACTIVE
+        WebSocketSession mockSession = mock(WebSocketSession.class);
+        given(mockSession.getId()).willReturn("session-receiver");
+        given(mockSession.getAttributes())
+                .willReturn(Map.of(SessionConst.SESSION_ID, receiver.getId()));
+        chatRoomManager.registerSession(mockSession);
+        chatRoomManager.addSessionToRoom(mockSession, chatRoomId);
+        chatRoomManager.deactivateRoom(mockSession.getId(), chatRoomId);
+
+        // inactive 동안 메시지 5개 도착
+        chatService.saveChat(sender.getId(), chatRoomId, "msg1");
+        chatService.saveChat(sender.getId(), chatRoomId, "msg2");
+        chatService.saveChat(sender.getId(), chatRoomId, "msg3");
+        chatService.saveChat(sender.getId(), chatRoomId, "msg4");
+        Long latestChatId = chatService.saveChat(sender.getId(), chatRoomId, "msg5");
+
+        // when: ROOM_ACTIVE
+        chatService.onRoomActive(receiver.getId(), chatRoomId);
+        em.flush(); em.clear();
+
+        // then: cursor가 최신 메시지까지 갱신되어야 한다
+        ChatRoomParticipant participant = chatRoomParticipantRepository
+                .findChatRoomBy(chatRoomId, receiver.getId());
+        assertThat(participant.getLastReadChatId()).isEqualTo(latestChatId);
+    }
+
+    @Test
+    @DisplayName("ROOM_ACTIVE 시 방에 메시지가 없으면 예외 없이 return된다.")
+    void onRoomActive_emptyRoom_returnsWithoutExceptionTest() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+
+        // when & then: 예외 없이 정상 종료
+        assertThatCode(() -> chatService.onRoomActive(member.getId(), chatRoom.getId()))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("ROOM_ACTIVE 시 이미 최신 cursor이면 PublishReadEvent가 발행되지 않는다.")
+    void onRoomActive_alreadyAtLatestCursor_doesNotPublishEventTest(ApplicationEvents events) {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiver = fixture.savedMemberBy("receiver");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(sender, receiver));
+        Long chatRoomId = chatRoom.getId();
+
+        // receiver: ENTER_ROOM(auto-activate)
+        WebSocketSession mockSession = mock(WebSocketSession.class);
+        given(mockSession.getId()).willReturn("session-receiver");
+        given(mockSession.getAttributes())
+                .willReturn(Map.of(SessionConst.SESSION_ID, receiver.getId()));
+        chatRoomManager.registerSession(mockSession);
+        chatRoomManager.addSessionToRoom(mockSession, chatRoomId);
+
+        // 메시지 전송 → receiver가 active이므로 cursor 즉시 갱신됨
+        chatService.saveChat(sender.getId(), chatRoomId, "msg");
+
+        // when: ROOM_ACTIVE (cursor가 이미 최신)
+        chatService.onRoomActive(receiver.getId(), chatRoomId);
+
+        // then: PublishReadEvent 발행 없음
+        long eventCount = events.stream(PublishReadEvent.class).count();
+        assertThat(eventCount).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("ROOM_ACTIVE 시 unread가 있으면 PublishReadEvent가 발행된다.")
+    void onRoomActive_withUnread_publishesReadEventTest(ApplicationEvents events) {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiver = fixture.savedMemberBy("receiver");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(sender, receiver));
+        Long chatRoomId = chatRoom.getId();
+
+        // receiver: ENTER_ROOM 후 ROOM_INACTIVE
+        WebSocketSession mockSession = mock(WebSocketSession.class);
+        given(mockSession.getId()).willReturn("session-receiver");
+        given(mockSession.getAttributes())
+                .willReturn(Map.of(SessionConst.SESSION_ID, receiver.getId()));
+        chatRoomManager.registerSession(mockSession);
+        chatRoomManager.addSessionToRoom(mockSession, chatRoomId);
+        chatRoomManager.deactivateRoom(mockSession.getId(), chatRoomId);
+
+        // inactive 동안 메시지 3개
+        Long firstChatId = chatService.saveChat(sender.getId(), chatRoomId, "msg1");
+        chatService.saveChat(sender.getId(), chatRoomId, "msg2");
+        Long latestChatId = chatService.saveChat(sender.getId(), chatRoomId, "msg3");
+
+        // receiver cursor 상태 확인 (inactive였으므로 null이어야 함)
+        Long cursorBefore = chatRoomParticipantRepository
+                .findLastReadChatIdBy(receiver.getId(), chatRoomId);
+        assertThat(cursorBefore).isNull(); // inactive 중 메시지는 cursor advance 없음
+
+        // when: ROOM_ACTIVE
+        chatService.onRoomActive(receiver.getId(), chatRoomId);
+
+        // then: PublishReadEvent 1건 발행
+        List<PublishReadEvent> publishedEvents =
+                events.stream(PublishReadEvent.class).toList();
+        assertThat(publishedEvents).hasSize(1);
+
+        PublishReadEvent event = publishedEvents.get(0);
+        assertThat(event.getMemberId()).isEqualTo(receiver.getId());
+        assertThat(event.getChatRoomId()).isEqualTo(chatRoomId);
+        assertThat(event.getLastReadChatId()).isNull(); // 이전 cursor = null
+        assertThat(event.getUpdatesByMemberId()).hasSize(1);
+        assertThat(event.getUpdatesByMemberId()).containsKey(receiver.getId());
+        assertThat(event.getUpdatesByMemberId()).doesNotContainKey(sender.getId());
+    }
+
+    @Test
+    @DisplayName("다중 세션에서 ROOM_ACTIVE가 동시에 와도 PublishReadEvent는 1건만 발행된다.")
+    void onRoomActive_duplicateCall_publishesEventOnceTest(ApplicationEvents events) {
+        // given
+        Member sender = fixture.savedMemberBy("sender");
+        Member receiver = fixture.savedMemberBy("receiver");
+        ChatRoom chatRoom = fixture.savedChatRoomBy("room", List.of(sender, receiver));
+        Long chatRoomId = chatRoom.getId();
+
+        // inactive 동안 메시지 1개
+        chatService.saveChat(sender.getId(), chatRoomId, "msg");
+
+        // when: 같은 memberId로 ROOM_ACTIVE 두 번 (다중 세션 시뮬레이션)
+        chatService.onRoomActive(receiver.getId(), chatRoomId); // 1st → cursor advance, 이벤트발행
+        chatService.onRoomActive(receiver.getId(), chatRoomId); // 2nd → cursor 이미 최신,이벤트 미발행
+
+        // then: 이벤트는 1건만 발행
+        long eventCount = events.stream(PublishReadEvent.class).count();
+        assertThat(eventCount).isEqualTo(1);
     }
 }
