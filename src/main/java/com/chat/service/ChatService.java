@@ -134,8 +134,9 @@ public class ChatService {
             lastReadChatId = chatRoomParticipantRepository
                     .findLastReadChatIdBy(memberId, chatRoomId);
 
+            Long currentLastReadChatId = chats.get(chats.size() - 1).getId();
             int updatedCount = chatRoomParticipantRepository.updateLastReadChatId(
-                    memberId, chatRoomId, chats.get(chats.size() - 1).getId()
+                    memberId, chatRoomId, currentLastReadChatId
             );
 
             if (updatedCount > 0) {
@@ -144,6 +145,7 @@ public class ChatService {
                         memberId,
                         chatRoomId,
                         lastReadChatId,
+                        currentLastReadChatId,
                         updatesByMemberId
                 ));
             }
@@ -197,6 +199,7 @@ public class ChatService {
                 memberId,
                 chatRoomId,
                 previousLastReadChatId,
+                latestChatId,
                 updatesByMemberId
         ));
     }

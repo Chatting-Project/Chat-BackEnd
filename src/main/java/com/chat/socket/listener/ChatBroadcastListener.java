@@ -40,7 +40,12 @@ public class ChatBroadcastListener {
     @Async("broadcastExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void publishReadEventToSessions(PublishReadEvent event) {
-        ReadEvent readEvent = new ReadEvent(event.getMemberId(), event.getChatRoomId(), event.getLastReadChatId());
+        ReadEvent readEvent = new ReadEvent(
+                event.getMemberId(),
+                event.getChatRoomId(),
+                event.getPreviousLastReadChatId(),
+                event.getCurrentLastReadChatId()
+        );
         sendToRoomSessions(event.getChatRoomId(), readEvent);
         sendUpdateChatRoom(event.getUpdatesByMemberId());
     }

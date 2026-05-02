@@ -11,6 +11,7 @@ import java.util.Map;
 public class PublishReadEvent {
     private final Long memberId;
     private final Long chatRoomId;
-    private final Long lastReadChatId;
+    private final Long previousLastReadChatId;
+    private final Long currentLastReadChatId;
     private final Map<Long, UpdateChatRoom> updatesByMemberId;
 }
