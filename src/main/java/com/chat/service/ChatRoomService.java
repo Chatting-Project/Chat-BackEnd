@@ -2,7 +2,6 @@ package com.chat.service;
 
 import com.chat.api.response.chatroom.ChatRoomMemberResponse;
 import com.chat.api.response.chatroom.ChatRoomsResponse;
-import com.chat.api.response.chatroom.OpponentResponse;
 import com.chat.entity.*;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
@@ -198,23 +197,11 @@ public class ChatRoomService {
                         RoomUnreadMessageCount::getUnreadMessageCount
                 ));
 
-        // 채팅방별 참여자 목록 일괄 조회
-        Map<Long, List<ChatRoomParticipant>> participantsByRoom = chatRoomParticipantRepository
-                .findAllFetchMemberBy(chatRoomIds)
-                .stream()
-                .collect(Collectors.groupingBy(
-                        crp -> crp.getChatRoom().getId()
-                ));
-
         return participants
                 .stream()
                 .map(crp -> {
                     Long chatRoomId = crp.getChatRoom().getId();
                     Chat lastChat = lastChatMap.get(chatRoomId);
-
-                    List<OpponentResponse> opponents = createOpponentResponses(
-                            participantsByRoom.getOrDefault(chatRoomId, List.of()),
-                            memberId);
 
                     return ChatRoomsResponse.builder()
                             .chatRoomId(chatRoomId)
@@ -222,18 +209,9 @@ public class ChatRoomService {
                             .lastMessage(lastChat != null ? lastChat.getMessage() : null)
                             .createdDate(lastChat != null ? lastChat.getCreatedDate() : null)
                             .unreadMessageCount(unreadMessageCountMap.getOrDefault(chatRoomId, 0L))
-                            .opponents(opponents)
                             .build();
                 })
                 .toList();
-    }
-
-    private List<OpponentResponse> createOpponentResponses(List<ChatRoomParticipant> chatRoomParticipants, Long memberId) {
-        return chatRoomParticipants.stream()
-                .map(ChatRoomParticipant::getMember)
-                .filter(member -> !member.getId().equals(memberId))
-                .map(member -> new OpponentResponse(member.getId(), member.getNickname()))
-                .collect(Collectors.toList());
     }
 
     @Transactional

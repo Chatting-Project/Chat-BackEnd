@@ -2,7 +2,6 @@ package com.chat.service;
 
 import com.chat.api.response.chatroom.ChatRoomMemberResponse;
 import com.chat.api.response.chatroom.ChatRoomsResponse;
-import com.chat.api.response.chatroom.OpponentResponse;
 import com.chat.entity.Chat;
 import com.chat.entity.ChatRoom;
 import com.chat.entity.ChatRoomParticipant;
@@ -169,24 +168,6 @@ class ChatRoomServiceTest {
         // then
         assertThat(chatRooms).hasSize(1);
         assertThat(chatRooms.get(0).getUnreadMessageCount()).isEqualTo(1L);
-    }
-
-    @Test
-    @DisplayName("채팅방 목록 조회 시 본인을 제외한 상대방 정보가 포함된다.")
-    void findChatRooms_opponentsTest() {
-        // given
-        Member me = fixture.savedMemberBy("me");
-        Member other = fixture.savedMemberBy("other");
-        fixture.savedChatRoomBy("title", List.of(me, other));
-
-        // when
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
-
-        // then
-        assertThat(chatRooms).hasSize(1);
-        List<OpponentResponse> opponents = chatRooms.get(0).getOpponents();
-        assertThat(opponents).hasSize(1);
-        assertThat(opponents.get(0).getOpponentId()).isEqualTo(other.getId());
     }
 
     @Test
