@@ -207,6 +207,7 @@ public class ChatRoomService {
                             .chatRoomId(chatRoomId)
                             .title(crp.getChatRoom().getTitle())
                             .lastMessage(lastChat != null ? lastChat.getMessage() : null)
+                            .lastChatId(lastChat != null ? lastChat.getId() : null)
                             .createdDate(lastChat != null ? lastChat.getCreatedDate() : null)
                             .unreadMessageCount(unreadMessageCountMap.getOrDefault(chatRoomId, 0L))
                             .build();

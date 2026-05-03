@@ -13,14 +13,16 @@ public class ChatRoomsResponse {
     private Long chatRoomId;
     private String title;
     private String lastMessage;
+    private Long lastChatId;
     private Long unreadMessageCount;
     private LocalDateTime createdDate;
 
     @Builder
-    public ChatRoomsResponse(Long chatRoomId, String title, String lastMessage, Long unreadMessageCount, LocalDateTime createdDate) {
+    public ChatRoomsResponse(Long chatRoomId, String title, String lastMessage, Long lastChatId, Long unreadMessageCount, LocalDateTime createdDate) {
         this.chatRoomId = chatRoomId;
         this.title = title;
         this.lastMessage = lastMessage;
+        this.lastChatId = lastChatId;
         this.unreadMessageCount = unreadMessageCount;
         this.createdDate = createdDate;
     }

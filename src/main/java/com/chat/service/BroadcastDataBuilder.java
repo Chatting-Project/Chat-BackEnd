@@ -64,6 +64,7 @@ public class BroadcastDataBuilder {
                                 .chatRoomId(chatRoomId)
                                 .title(chatRoom.getTitle())
                                 .lastMessage(lastChat != null ? lastChat.getMessage() : null)
+                                .lastChatId(lastChat != null ? lastChat.getId() : null)
                                 .createdDate(lastChat != null ? lastChat.getCreatedDate() : null)
                                 .unreadMessageCount(unreadCountMap.getOrDefault(memberId, 0L))
                                 .build()
