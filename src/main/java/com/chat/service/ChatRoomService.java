@@ -164,6 +164,13 @@ public class ChatRoomService {
         return createChatRoomsResponse(findMember.getId());
     }
 
+    public void validateParticipant(Long memberId, Long chatRoomId) {
+        ChatRoomParticipant participant = chatRoomParticipantRepository.findChatRoomBy(chatRoomId, memberId);
+        if (participant == null) {
+            throw new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST);
+        }
+    }
+
     private List<ChatRoomsResponse> createChatRoomsResponse(Long memberId) {
 
         // 참여 채팅방 목록 조회

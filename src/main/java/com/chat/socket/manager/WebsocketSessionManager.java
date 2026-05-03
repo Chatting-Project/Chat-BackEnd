@@ -1,5 +1,7 @@
 package com.chat.socket.manager;
 
+import com.chat.exception.CustomException;
+import com.chat.exception.ErrorCode;
 import com.chat.utils.annotation.VisibleForTesting;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +38,7 @@ public class WebsocketSessionManager {
                 .flatMap(Set::stream)
                 .filter(s -> s.getId().equals(rawSession.getId()))
                 .findFirst()
-                .orElse(rawSession);
+                .orElseThrow(() -> new CustomException(ErrorCode.WEB_SOCKET_SESSION_NOT_EXIST));
     }
 
     public Collection<WebSocketSession> getSessionBy(Long memberId) {

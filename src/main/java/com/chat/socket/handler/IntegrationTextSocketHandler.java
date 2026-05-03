@@ -91,6 +91,8 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
                 case ENTER_ROOM:
                     EnterRoomRequest enterRoomRequest = (EnterRoomRequest) baseMessage;
                     IdValidator.requireChatRoomId(enterRoomRequest.getChatRoomId());
+                    Long enterMemberId = (Long) session.getAttributes().get(SessionConst.SESSION_ID);
+                    chatRoomService.validateParticipant(enterMemberId, enterRoomRequest.getChatRoomId());
                     WebSocketSession safeSession = websocketSessionManager.getWrappedSession(session);
                     chatRoomManager.addSessionToRoom(safeSession, enterRoomRequest.getChatRoomId());
 

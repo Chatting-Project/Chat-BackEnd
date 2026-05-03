@@ -27,7 +27,8 @@ public class ChatRoomManager {
 
         // 방 전환
         chatRooms.forEach((roomId, sessions) -> {
-            if (!roomId.equals(chatRoomId) && sessions.contains(session)) {
+            if (!roomId.equals(chatRoomId) &&
+                    sessions.stream().anyMatch(s -> s.getId().equals(session.getId()))) {
                 removeChatRoomSession(roomId, session);
 
                 SessionState state = sessionStates.get(session.getId());
