@@ -29,7 +29,6 @@ public class ChatRoomManager {
         chatRooms.forEach((roomId, sessions) -> {
             if (!roomId.equals(chatRoomId) &&
                     sessions.stream().anyMatch(s -> s.getId().equals(session.getId()))) {
-                removeChatRoomSession(roomId, session);
 
                 SessionState state = sessionStates.get(session.getId());
                 if (state != null) {
@@ -37,6 +36,8 @@ public class ChatRoomManager {
                 } else {
                     log.warn("addSessionToRoom: no SessionState for sessionId={}", session.getId());
                 }
+
+                removeChatRoomSession(roomId, session);
             }
         });
 
