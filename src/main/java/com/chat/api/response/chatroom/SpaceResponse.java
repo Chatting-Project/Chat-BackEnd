@@ -5,11 +5,11 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class ChatRoomResponse {
+public class SpaceResponse {
 
     private Long chatRoomId;
 
-    public ChatRoomResponse(Long chatRoomId) {
+    public SpaceResponse(Long chatRoomId) {
         this.chatRoomId = chatRoomId;
     }
 }

@@ -1,14 +1,14 @@
 package com.chat.api;
 
 import com.chat.api.request.chatroom.InviteMembersRequest;
-import com.chat.api.request.chatroom.RenameChatRoomRequest;
-import com.chat.api.response.chatroom.ChatRoomMemberResponse;
-import com.chat.api.response.chatroom.ChatRoomResponse;
-import com.chat.api.response.chatroom.ChatRoomsResponse;
-import com.chat.api.request.chatroom.SaveChatRooomRequest;
+import com.chat.api.request.chatroom.RenameSpaceRequest;
+import com.chat.api.response.chatroom.SpaceMemberResponse;
+import com.chat.api.response.chatroom.SpaceResponse;
+import com.chat.api.response.chatroom.SpaceSummaryResponse;
+import com.chat.api.request.chatroom.SaveSpaceRequest;
 import com.chat.utils.consts.SessionConst;
 import com.chat.service.SpaceService;
-import com.chat.service.dtos.SaveChatRoomDTO;
+import com.chat.service.dtos.SaveSpaceDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -24,10 +24,10 @@ public class SpaceApiController {
     private final SpaceService chatRoomService;
 
     @PostMapping("/api/chat/room")
-    public Result<ChatRoomResponse> chatRoom(@RequestBody SaveChatRooomRequest request,
-                                             @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+    public Result<SpaceResponse> chatRoom(@RequestBody SaveSpaceRequest request,
+                                          @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
 
-        SaveChatRoomDTO saveChatRooomDto = SaveChatRoomDTO
+        SaveSpaceDTO saveChatRooomDto = SaveSpaceDTO
                 .builder()
                 .senderId(loginMemberId)
                 .receiverIds(request.getReceiverIds())
@@ -36,20 +36,20 @@ public class SpaceApiController {
         Long chatRoomId = chatRoomService.saveChatRoom(saveChatRooomDto);
 
         return Result
-                .<ChatRoomResponse>builder()
-                .data(new ChatRoomResponse(chatRoomId))
+                .<SpaceResponse>builder()
+                .data(new SpaceResponse(chatRoomId))
                 .status(HttpStatus.OK)
                 .message("채팅방 생성이 완료됐습니다.")
                 .build();
     }
 
     @GetMapping("/api/chat/rooms")
-    public Result<List<ChatRoomsResponse>> chatRooms(@SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+    public Result<List<SpaceSummaryResponse>> chatRooms(@SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
 
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(loginMemberId);
+        List<SpaceSummaryResponse> chatRooms = chatRoomService.findChatRooms(loginMemberId);
 
         return Result
-                .<List<ChatRoomsResponse>>builder()
+                .<List<SpaceSummaryResponse>>builder()
                 .data(chatRooms)
                 .status(HttpStatus.OK)
                 .message("채팅방 목록 조회가 완료됐습니다.")
@@ -70,7 +70,7 @@ public class SpaceApiController {
 
     @PatchMapping("/api/chat/room/{chatRoomId}")
     public Result<Void> renameChatRoom(@PathVariable Long chatRoomId,
-                                       @RequestBody RenameChatRoomRequest request,
+                                       @RequestBody RenameSpaceRequest request,
                                        @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
 
         chatRoomService.renameChatRoom(loginMemberId, chatRoomId, request.getTitle());
@@ -82,11 +82,11 @@ public class SpaceApiController {
     }
 
     @GetMapping("/api/chat/room/{chatRoomId}/members")
-    public Result<List<ChatRoomMemberResponse>> chatRoomMembers(@PathVariable Long chatRoomId,
-                                                                @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
-        List<ChatRoomMemberResponse> members = chatRoomService.findChatRoomMembers(loginMemberId, chatRoomId);
+    public Result<List<SpaceMemberResponse>> chatRoomMembers(@PathVariable Long chatRoomId,
+                                                             @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+        List<SpaceMemberResponse> members = chatRoomService.findChatRoomMembers(loginMemberId, chatRoomId);
 
-        return Result.<List<ChatRoomMemberResponse>>builder()
+        return Result.<List<SpaceMemberResponse>>builder()
                 .data(members)
                 .status(HttpStatus.OK)
                 .message("멤버 목록 조회가 완료됐습니다.")

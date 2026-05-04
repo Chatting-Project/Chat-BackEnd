@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor
-public class ChatRoomsResponse {
+public class SpaceSummaryResponse {
 
     private Long chatRoomId;
     private String title;
@@ -18,7 +18,7 @@ public class ChatRoomsResponse {
     private LocalDateTime createdDate;
 
     @Builder
-    public ChatRoomsResponse(Long chatRoomId, String title, String lastMessage, Long lastChatId, Long unreadMessageCount, LocalDateTime createdDate) {
+    public SpaceSummaryResponse(Long chatRoomId, String title, String lastMessage, Long lastChatId, Long unreadMessageCount, LocalDateTime createdDate) {
         this.chatRoomId = chatRoomId;
         this.title = title;
         this.lastMessage = lastMessage;

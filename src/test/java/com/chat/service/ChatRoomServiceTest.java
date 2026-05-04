@@ -1,7 +1,7 @@
 package com.chat.service;
 
-import com.chat.api.response.chatroom.ChatRoomMemberResponse;
-import com.chat.api.response.chatroom.ChatRoomsResponse;
+import com.chat.api.response.chatroom.SpaceMemberResponse;
+import com.chat.api.response.chatroom.SpaceSummaryResponse;
 import com.chat.entity.Chat;
 import com.chat.entity.Space;
 import com.chat.entity.ChatRoomParticipant;
@@ -10,7 +10,7 @@ import com.chat.exception.CustomException;
 import com.chat.fixture.TestDataFixture;
 import com.chat.repository.ChatRoomParticipantRepository;
 import com.chat.repository.SpaceRepository;
-import com.chat.service.dtos.SaveChatRoomDTO;
+import com.chat.service.dtos.SaveSpaceDTO;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +52,7 @@ class ChatRoomServiceTest {
         receiverIds.add(firstReceiver.getId());
         receiverIds.add(secondReceiver.getId());
 
-        SaveChatRoomDTO dto = SaveChatRoomDTO
+        SaveSpaceDTO dto = SaveSpaceDTO
                 .builder()
                 .title(title)
                 .senderId(sender.getId())
@@ -104,7 +104,7 @@ class ChatRoomServiceTest {
         fixture.savedChatRoomBy("title", fourthParticipants);
 
         // when
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(first.getId());
+        List<SpaceSummaryResponse> chatRooms = chatRoomService.findChatRooms(first.getId());
 
         // then
         assertThat(chatRooms).hasSize(3);
@@ -119,7 +119,7 @@ class ChatRoomServiceTest {
         fixture.savedChatRoomBy("title", List.of(me, other));
 
         // when
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+        List<SpaceSummaryResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
 
         // then
         assertThat(chatRooms).hasSize(1);
@@ -139,7 +139,7 @@ class ChatRoomServiceTest {
         fixture.savedSimpleChat("last message", other, chatRoom);
 
         // when
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+        List<SpaceSummaryResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
 
         // then
         assertThat(chatRooms).hasSize(1);
@@ -163,7 +163,7 @@ class ChatRoomServiceTest {
                 me.getId(), chatRoom.getId(), firstChat.getId());
 
         // when
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+        List<SpaceSummaryResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
 
         // then
         assertThat(chatRooms).hasSize(1);
@@ -240,11 +240,11 @@ class ChatRoomServiceTest {
         Space chatRoom = fixture.savedChatRoomBy("title", List.of(me, other));
 
         // when
-        List<ChatRoomMemberResponse> members = chatRoomService.findChatRoomMembers(me.getId(), chatRoom.getId());
+        List<SpaceMemberResponse> members = chatRoomService.findChatRoomMembers(me.getId(), chatRoom.getId());
 
         // then
         assertThat(members).hasSize(2);
-        assertThat(members).extracting(ChatRoomMemberResponse::getMemberId)
+        assertThat(members).extracting(SpaceMemberResponse::getMemberId)
                 .containsExactlyInAnyOrder(me.getId(), other.getId());
     }
 
@@ -293,7 +293,7 @@ class ChatRoomServiceTest {
         // me cursor: null — 한 번도 읽지 않음
 
         // when
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+        List<SpaceSummaryResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
 
         // then
         assertThat(chatRooms.get(0).getUnreadMessageCount()).isEqualTo(2L);
@@ -315,7 +315,7 @@ class ChatRoomServiceTest {
                 me.getId(), chatRoom.getId(), lastChat.getId());
 
         // when
-        List<ChatRoomsResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
+        List<SpaceSummaryResponse> chatRooms = chatRoomService.findChatRooms(me.getId());
 
         // then
         assertThat(chatRooms.get(0).getUnreadMessageCount()).isEqualTo(0L);

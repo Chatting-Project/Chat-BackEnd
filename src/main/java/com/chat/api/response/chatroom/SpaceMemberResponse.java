@@ -5,7 +5,7 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class ChatRoomMemberResponse {
+public class SpaceMemberResponse {
     private Long memberId;
     private String nickname;
 }

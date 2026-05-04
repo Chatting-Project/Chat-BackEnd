@@ -1,14 +1,14 @@
 package com.chat.service;
 
-import com.chat.api.response.chatroom.ChatRoomMemberResponse;
-import com.chat.api.response.chatroom.ChatRoomsResponse;
+import com.chat.api.response.chatroom.SpaceMemberResponse;
+import com.chat.api.response.chatroom.SpaceSummaryResponse;
 import com.chat.entity.*;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.repository.*;
 import com.chat.repository.dtos.RoomUnreadMessageCount;
 import com.chat.service.dtos.SaveChatData;
-import com.chat.service.dtos.SaveChatRoomDTO;
+import com.chat.service.dtos.SaveSpaceDTO;
 import com.chat.service.dtos.chat.BroadcastChat;
 import com.chat.service.dtos.chat.SendChat;
 import com.chat.service.dtos.chat.UpdateChatRoom;
@@ -72,7 +72,7 @@ public class SpaceService {
     }
 
     @Transactional
-    public Long saveChatRoom(SaveChatRoomDTO saveChatRoomDTO) {
+    public Long saveChatRoom(SaveSpaceDTO saveChatRoomDTO) {
 
         Long senderId = saveChatRoomDTO.getSenderId();
         Set<Long> receiverIds = saveChatRoomDTO.getReceiverIds();
@@ -155,13 +155,13 @@ public class SpaceService {
         }
     }
 
-    public List<ChatRoomsResponse> findChatRooms(Long memberId) {
+    public List<SpaceSummaryResponse> findChatRooms(Long memberId) {
 
         Member findMember = memberRepository.findById(memberId).orElseThrow(
                 () -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)
         );
 
-        return createChatRoomsResponse(findMember.getId());
+        return createSpaceSummaryResponse(findMember.getId());
     }
 
     public void validateParticipant(Long memberId, Long chatRoomId) {
@@ -171,7 +171,7 @@ public class SpaceService {
         }
     }
 
-    private List<ChatRoomsResponse> createChatRoomsResponse(Long memberId) {
+    private List<SpaceSummaryResponse> createSpaceSummaryResponse(Long memberId) {
 
         // 참여 채팅방 목록 조회
         List<ChatRoomParticipant> participants
@@ -210,7 +210,7 @@ public class SpaceService {
                     Long chatRoomId = crp.getSpace().getId();
                     Chat lastChat = lastChatMap.get(chatRoomId);
 
-                    return ChatRoomsResponse.builder()
+                    return SpaceSummaryResponse.builder()
                             .chatRoomId(chatRoomId)
                             .title(crp.getSpace().getTitle())
                             .lastMessage(lastChat != null ? lastChat.getMessage() : null)
@@ -260,7 +260,7 @@ public class SpaceService {
         publisher.publishEvent(new PublishUpdateEvent(chatRoomId, updatesByMemberId));
     }
 
-    public List<ChatRoomMemberResponse> findChatRoomMembers(Long memberId, Long chatRoomId) {
+    public List<SpaceMemberResponse> findChatRoomMembers(Long memberId, Long chatRoomId) {
 
         ChatRoomParticipant participant = chatRoomParticipantRepository.findChatRoomBy(chatRoomId, memberId);
         if (participant == null) {
@@ -269,7 +269,7 @@ public class SpaceService {
 
         return chatRoomParticipantRepository.findAllFetchMemberBy(chatRoomId)
                 .stream()
-                .map(crp -> new ChatRoomMemberResponse(
+                .map(crp -> new SpaceMemberResponse(
                         crp.getMember().getId(),
                         crp.getMember().getNickname()
                 ))
