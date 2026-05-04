@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ChatRoomService {
+public class SpaceService {
 
     private final ApplicationEventPublisher publisher;
     private final BroadcastDataBuilder broadcastDataBuilder;

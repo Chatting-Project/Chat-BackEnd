@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.*;
 class ChatRoomServiceTest {
 
     @Autowired
-    private ChatRoomService chatRoomService;
+    private SpaceService chatRoomService;
     @Autowired
     private SpaceRepository spaceRepository;
     @Autowired

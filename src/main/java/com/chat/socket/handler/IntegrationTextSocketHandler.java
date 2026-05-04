@@ -2,7 +2,7 @@ package com.chat.socket.handler;
 
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
-import com.chat.service.ChatRoomService;
+import com.chat.service.SpaceService;
 import com.chat.service.ChatService;
 import com.chat.service.MemberService;
 import com.chat.service.dtos.chat.EnterRoomRequest;
@@ -35,7 +35,7 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
 
     private final WebsocketSessionManager websocketSessionManager;
     private final ChatRoomManager chatRoomManager;
-    private final ChatRoomService chatRoomService;
+    private final SpaceService chatRoomService;
     private final ChatService chatService;
     private final MemberService memberService;
     private final ObjectMapper objectMapper;

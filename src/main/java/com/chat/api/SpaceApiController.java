@@ -7,7 +7,7 @@ import com.chat.api.response.chatroom.ChatRoomResponse;
 import com.chat.api.response.chatroom.ChatRoomsResponse;
 import com.chat.api.request.chatroom.SaveChatRooomRequest;
 import com.chat.utils.consts.SessionConst;
-import com.chat.service.ChatRoomService;
+import com.chat.service.SpaceService;
 import com.chat.service.dtos.SaveChatRoomDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,9 +19,9 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class ChatRoomApiController {
+public class SpaceApiController {
 
-    private final ChatRoomService chatRoomService;
+    private final SpaceService chatRoomService;
 
     @PostMapping("/api/chat/room")
     public Result<ChatRoomResponse> chatRoom(@RequestBody SaveChatRooomRequest request,

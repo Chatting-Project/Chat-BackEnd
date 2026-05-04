@@ -46,7 +46,7 @@ public class SimpleChatRoomServiceSocketTest {
     @Autowired
     private SocketFixture socketFixture;
     @Autowired
-    private ChatRoomService chatRoomService;
+    private SpaceService chatRoomService;
 
     @Autowired
     private ChatRoomManager chatRoomManager;
