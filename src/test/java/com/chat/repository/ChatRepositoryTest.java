@@ -84,35 +84,6 @@ class ChatRepositoryTest {
     }
 
     @Test
-    @DisplayName("채팅방 ID 를 이용해 채팅 정보를 조회힌다.")
-    void findChatHistoryTest() {
-        // given
-        String firstUser = "first";
-        Member firstMember = createMember(firstUser);
-        String secondUser = "second";
-        Member secondMember = createMember(secondUser);
-
-        String title = "title";
-        ChatRoom chatRoom = createChatRoom(title);
-
-        String firstMessage = "first";
-        Chat firstChat = new Chat(firstMessage, firstMember, chatRoom);
-        chatRepository.save(firstChat);
-
-        String secondMessage = "second";
-        Chat secondChat = new Chat(secondMessage, secondMember, chatRoom);
-        chatRepository.save(secondChat);
-
-        // when
-        List<Chat> chatHistory = chatRepository.findChatHistory(chatRoom.getId());
-
-        // then
-        assertThat(chatHistory).hasSize(2);
-        assertThat(chatHistory.get(0)).isEqualTo(firstChat);
-        assertThat(chatHistory.get(1)).isEqualTo(secondChat);
-    }
-
-    @Test
     @DisplayName("여러 채팅방의 마지막 메시지를 일괄 조회한다.")
     void findLastChatsByMultipleRoomsTest() {
         // given

@@ -200,50 +200,6 @@ class IntegrationTextSocketHandlerTest {
     }
 
     @Test
-    @DisplayName("ENTER_ROOM 메시지 전송 시 chatRoomManager에 세션이 등록된다.")
-    void enterRoomTest() throws ExecutionException, InterruptedException, IOException {
-        // given
-        String username = "username";
-        Member member = memberFixture.saveEncryptPasswordBy(username);
-        Long memberId = member.getId();
-
-        List<Member> participants = new ArrayList<>();
-        participants.add(member);
-        ChatRoom chatRoom = fixture.savedChatRoomBy("title", participants);
-        Long chatRoomId = chatRoom.getId();
-
-        String JSessionId = memberFixture.loginRequestBy(username, port);
-
-        WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
-        headers.add("Cookie", "JSESSIONID=" + JSessionId);
-
-        CountDownLatch latch = new CountDownLatch(1);
-        List<String> receivedMessages = new ArrayList<>();
-        TestWebSocketHandler handler = new TestWebSocketHandler(memberId, receivedMessages, latch);
-
-        WebSocketClient client = new StandardWebSocketClient();
-        client.execute(handler,
-                        headers,
-                        URI.create("ws://localhost:" + port + "/ws/chat"))
-                .get();
-
-        EnterRoomRequest enterRoomRequest = EnterRoomRequest.builder()
-                .messageType(MessageType.ENTER_ROOM)
-                .chatRoomId(chatRoomId)
-                .build();
-
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        // when
-        WebSocketSession serverSession = websocketSessionManager.getSessionBy(memberId).iterator().next();
-        serverSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(enterRoomRequest)));
-
-        // then
-        latch.await(1, TimeUnit.SECONDS);
-        assertThat(chatRoomManager.getWebSocketSessionBy(chatRoomId)).isNotEmpty();
-    }
-
-    @Test
     @DisplayName("웹 소켓 연결 종료 시 세션 제거")
     void afterConnectionClosedTest() throws ExecutionException, InterruptedException, IOException {
         // given

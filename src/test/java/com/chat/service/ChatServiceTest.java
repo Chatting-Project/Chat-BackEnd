@@ -225,7 +225,7 @@ class ChatServiceTest {
         PublishReadEvent event = publishedEvents.get(0);
         assertThat(event.getMemberId()).isEqualTo(secondMember.getId());
         assertThat(event.getChatRoomId()).isEqualTo(chatRoomId);
-        assertThat(event.getLastReadChatId()).isNull(); // 이전에 읽은 기록 없음
+        assertThat(event.getPreviousLastReadChatId()).isNull(); // 이전에 읽은 기록 없음
         // 읽음 처리 시 나(secondMember)에게만 UPDATE_CHAT_ROOM을 보내야 함
         assertThat(event.getUpdatesByMemberId()).hasSize(1);
         assertThat(event.getUpdatesByMemberId()).containsKey(secondMember.getId());
@@ -767,7 +767,7 @@ class ChatServiceTest {
         PublishReadEvent event = publishedEvents.get(0);
         assertThat(event.getMemberId()).isEqualTo(receiver.getId());
         assertThat(event.getChatRoomId()).isEqualTo(chatRoomId);
-        assertThat(event.getLastReadChatId()).isNull(); // 이전 cursor = null
+        assertThat(event.getPreviousLastReadChatId()).isNull(); // 이전 cursor = null
         assertThat(event.getUpdatesByMemberId()).hasSize(1);
         assertThat(event.getUpdatesByMemberId()).containsKey(receiver.getId());
         assertThat(event.getUpdatesByMemberId()).doesNotContainKey(sender.getId());

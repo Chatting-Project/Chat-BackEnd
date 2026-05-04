@@ -316,7 +316,7 @@ public class ChatRoomServiceSocketTest {
                 .collect(Collectors.toList());
         assertThat(messageTypes).containsExactlyInAnyOrder("UPDATE_CHAT_ROOM", "READ_EVENT");
 
-        // READ_EVENT의 memberId, chatRoomId, lastReadChatId 검증
+        // READ_EVENT의 memberId, chatRoomId, previousLastReadChatId, currentLastReadChatId 검증
         String readEventPayload = secondMessages.stream()
                 .filter(msg -> msg.contains("READ_EVENT"))
                 .findFirst()
@@ -324,7 +324,8 @@ public class ChatRoomServiceSocketTest {
         JsonNode readEventNode = objectMapper.readTree(readEventPayload);
         assertThat(readEventNode.get("memberId").asLong()).isEqualTo(secondId);
         assertThat(readEventNode.get("chatRoomId").asLong()).isEqualTo(chatRoomId);
-        assertThat(readEventNode.get("lastReadChatId").isNull()).isTrue();
+        assertThat(readEventNode.get("previousLastReadChatId").isNull()).isTrue();
+        assertThat(readEventNode.get("currentLastReadChatId").isNull()).isFalse();
     }
 
     @Test
@@ -374,7 +375,7 @@ public class ChatRoomServiceSocketTest {
                 .orElseThrow();
         JsonNode readEventNode = objectMapper.readTree(readEventPayload);
         assertThat(readEventNode.get("memberId").asLong()).isEqualTo(secondId);
-        assertThat(readEventNode.get("lastReadChatId").asLong()).isEqualTo(firstChatId);
+        assertThat(readEventNode.get("previousLastReadChatId").asLong()).isEqualTo(firstChatId);
     }
 
     @Test

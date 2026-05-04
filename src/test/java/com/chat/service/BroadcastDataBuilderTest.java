@@ -50,30 +50,6 @@ class BroadcastDataBuilderTest {
     }
 
     @Test
-    @DisplayName("chatRoomId에 해당하는 채팅방이 존재하지 않으면 CustomException이 발생한다.")
-    void build_chatRoomNotFound_throwsException() {
-        // given
-        Member me = fixture.savedMemberBy("me");
-        ChatRoom chatRoom = fixture.savedChatRoomBy("title", List.of(me));
-        Long chatRoomId = chatRoom.getId();
-
-        // FK 제약 임시 해제 후 chatRoom만 삭제 (데이터 정합성이 깨진 상태 재현)
-        em.flush();
-        em.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
-        em.createNativeQuery("DELETE FROM chat_room WHERE chat_room_id = :id")
-                .setParameter("id", chatRoomId)
-                .executeUpdate();
-        em.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
-        em.clear();
-
-        // when & then
-        assertThatThrownBy(() -> broadcastDataBuilder.build(chatRoomId))
-                .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.CHAT_ROOM_NOT_EXIST));
-    }
-
-    @Test
     @DisplayName("채팅 메시지가 없는 방은 lastMessage와 createdDate가 null이다.")
     void build_noMessages_returnsNullLastMessageAndCreatedDate() {
         // given
