@@ -24,7 +24,7 @@ import java.util.Map;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ChatBroadcastListener {
+public class MessageBroadcastListener {
 
     private final SpaceManager spaceManager;
     private final WebsocketSessionManager websocketSessionManager;

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.SessionAttribute;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class ChatApiController {
+public class MessageApiController {
 
     private final MessageService messageService;
 
