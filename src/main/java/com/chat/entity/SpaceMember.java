@@ -11,15 +11,18 @@ import static jakarta.persistence.FetchType.LAZY;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(indexes = {
-        @Index(name = "idx_chat_room_participant_chat_room_id", columnList = "chat_room_id"),
-        @Index(name = "idx_chat_room_participant_member_id",   columnList = "member_id")
-})
+@Table(
+        indexes = {
+                @Index(name = "idx_space_member_space_id",  columnList = "space_id"),
+                @Index(name = "idx_space_member_member_id", columnList = "member_id")
+        },
+        uniqueConstraints = @UniqueConstraint(name = "uq_space_member", columnNames = {"member_id", "space_id"})
+)
 public class SpaceMember extends BaseEntity {
 
     @Id
     @GeneratedValue
-    @Column(name = "chat_room_participant_id")
+    @Column(name = "space_member_id")
     private Long id;
 
     @Column(name = "last_read_message_id")
@@ -30,7 +33,7 @@ public class SpaceMember extends BaseEntity {
     private Member member;
 
     @ManyToOne(fetch = LAZY)
-    @JoinColumn(name = "chat_room_id")
+    @JoinColumn(name = "space_id")
     private Space space;
 
     @Builder

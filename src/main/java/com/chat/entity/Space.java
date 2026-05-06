@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 public class Space extends BaseEntity {
 
     @Id @GeneratedValue
-    @Column(name = "chat_room_id")
+    @Column(name = "space_id")
     private Long id;
 
     private String title;
