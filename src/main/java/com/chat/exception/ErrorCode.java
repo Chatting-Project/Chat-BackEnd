@@ -9,6 +9,8 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
 
     EMPTY_USERNAME(HttpStatus.BAD_REQUEST, "ID 가 비어있습니다."),
+    EMPTY_PASSWORD(HttpStatus.BAD_REQUEST, "비밀번호가 비어있습니다."),
+    EMPTY_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임이 비어있습니다."),
     DUPLICATED_USERNAME(HttpStatus.BAD_REQUEST, "중복된 ID 입니다."),
     USERNAME_NOT_MATCH(HttpStatus.BAD_REQUEST, "ID 가 일치하지 않습니다."),
     PASSWORD_NOT_MATCH(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다."),
@@ -21,7 +23,7 @@ public enum ErrorCode {
     CHAT_NOT_EXIST(HttpStatus.BAD_REQUEST, "존재하지 않는 채팅입니다."),
     CHAT_ROOM_BROADCAST_IO_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR, "채팅방 전파 중 오류가 발생했습니다."),
     WEB_SOCKET_SESSION_NOT_EXIST(HttpStatus.INTERNAL_SERVER_ERROR, "웹소켓 세션이 존재하지 않습니다."),
-    SERVER_BUSY(HttpStatus.TOO_MANY_REQUESTS, "서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.")
+    SERVER_BUSY(HttpStatus.TOO_MANY_REQUESTS, "서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요."),
     ;
 
     private final HttpStatus status;
