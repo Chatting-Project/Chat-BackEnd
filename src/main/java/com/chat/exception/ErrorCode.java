@@ -13,6 +13,7 @@ public enum ErrorCode {
     EMPTY_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임이 비어있습니다."),
     EMPTY_SPACE_TITLE(HttpStatus.BAD_REQUEST, "Space 이름이 비어있습니다."),
     EMPTY_MESSAGE_CONTENT(HttpStatus.BAD_REQUEST, "메시지 내용이 비어있습니다."),
+    EMPTY_DISCUSSION_MESSAGE_CONTENT(HttpStatus.BAD_REQUEST, "Discussion 메시지 내용이 비어있습니다."),
 
     DUPLICATED_USERNAME(HttpStatus.BAD_REQUEST, "이미 사용 중인 아이디입니다."),
     USERNAME_NOT_MATCH(HttpStatus.BAD_REQUEST, "아이디가 일치하지 않습니다."),
@@ -21,6 +22,7 @@ public enum ErrorCode {
 
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "회원이 존재하지 않습니다."),
     MEMBERS_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 회원이 포함돼있습니다."),
+    DISCUSSION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 Discussion입니다."),
     INCLUDE_SENDER_IN_RECEIVERS(HttpStatus.BAD_REQUEST, "받는 사람 목록에 자신을 포함할 수 없습니다."),
 
     SPACE_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "이미 존재하는 Space입니다."),
