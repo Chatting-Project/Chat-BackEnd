@@ -1,6 +1,5 @@
-package com.chat.entity.member;
+package com.chat.entity;
 
-import com.chat.entity.Member;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import org.assertj.core.api.AbstractObjectAssert;
