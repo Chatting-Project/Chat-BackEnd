@@ -11,6 +11,7 @@ public enum ErrorCode {
     EMPTY_USERNAME(HttpStatus.BAD_REQUEST, "아이디가 비어있습니다."),
     EMPTY_PASSWORD(HttpStatus.BAD_REQUEST, "비밀번호가 비어있습니다."),
     EMPTY_NICKNAME(HttpStatus.BAD_REQUEST, "닉네임이 비어있습니다."),
+    EMPTY_SPACE_TITLE(HttpStatus.BAD_REQUEST, "Space 이름이 비어있습니다."),
 
     DUPLICATED_USERNAME(HttpStatus.BAD_REQUEST, "이미 사용 중인 아이디입니다."),
     USERNAME_NOT_MATCH(HttpStatus.BAD_REQUEST, "아이디가 일치하지 않습니다."),
@@ -28,7 +29,8 @@ public enum ErrorCode {
     SPACE_BROADCAST_IO_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR, "Space 전파 중 오류가 발생했습니다."),
     WEB_SOCKET_SESSION_NOT_EXIST(HttpStatus.INTERNAL_SERVER_ERROR, "웹소켓 세션이 존재하지 않습니다."),
 
-    SERVER_BUSY(HttpStatus.TOO_MANY_REQUESTS, "서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.");
+    SERVER_BUSY(HttpStatus.TOO_MANY_REQUESTS, "서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요."),
+    ;
 
     private final HttpStatus status;
     private final String errorMessage;

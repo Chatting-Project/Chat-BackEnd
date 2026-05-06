@@ -1,5 +1,7 @@
 package com.chat.entity;
 
+import com.chat.exception.CustomException;
+import com.chat.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -15,13 +17,16 @@ import lombok.NoArgsConstructor;
 @Table(name = "space")
 public class Space extends BaseEntity {
 
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue
     @Column(name = "space_id")
     private Long id;
 
+    @Column(nullable = false)
     private String title;
 
     private Space(String title) {
+        validateTitle(title);
         this.title = title;
     }
 
@@ -30,6 +35,13 @@ public class Space extends BaseEntity {
     }
 
     public void rename(String title) {
+        validateTitle(title);
         this.title = title;
+    }
+
+    private static void validateTitle(String title) {
+        if (title == null || title.isBlank()) {
+            throw new CustomException(ErrorCode.EMPTY_SPACE_TITLE);
+        }
     }
 }
