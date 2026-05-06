@@ -41,7 +41,7 @@ public class BroadcastDataBuilder {
         }
 
         Space space = spaceRepository.findById(chatRoomId).orElseThrow(
-                () -> new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST)
+                () -> new CustomException(ErrorCode.SPACE_NOT_FOUND)
         );
 
         Message lastChat = messageRepository

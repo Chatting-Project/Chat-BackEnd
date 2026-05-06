@@ -15,7 +15,7 @@ public class IdValidator {
 
     public static void requireChatRoomId(Long ChatRoomId) {
         if (ChatRoomId == null) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST);
+            throw new CustomException(ErrorCode.SPACE_NOT_FOUND);
         }
     }
 }

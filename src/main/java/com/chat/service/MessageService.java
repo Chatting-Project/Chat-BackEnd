@@ -42,7 +42,7 @@ public class MessageService {
 
     public SaveMessageData findMessageData(Long chatId) {
         Message findChat = messageRepository.findById(chatId).orElseThrow(
-                () -> new CustomException(ErrorCode.CHAT_NOT_EXIST)
+                () -> new CustomException(ErrorCode.MESSAGE_NOT_FOUND)
         );
         Long unreadMemberCount = spaceMemberRepository.countMessageUnreadMembers(chatId);
 
@@ -61,7 +61,7 @@ public class MessageService {
                 () -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)
         );
         Space findChatRoom = spaceRepository.findById(chatRoomId).orElseThrow(
-                () -> new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST)
+                () -> new CustomException(ErrorCode.SPACE_NOT_FOUND)
         );
 
         Message savedChat = messageRepository.save(new Message(message, findSender, findChatRoom));

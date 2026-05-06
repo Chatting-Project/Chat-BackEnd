@@ -98,14 +98,14 @@ public class SpaceService {
 
     private void isSenderIncludeInReceivers(Long senderId, Set<Long> receiverIds) {
         if (receiverIds.contains(senderId)) {
-            throw new CustomException(ErrorCode.Include_Sender_In_Receivers);
+            throw new CustomException(ErrorCode.INCLUDE_SENDER_IN_RECEIVERS);
         }
     }
 
     private List<Member> findReceiverMembers(Set<Long> receiverIds) {
         List<Member> receivers = memberRepository.findAllById(receiverIds);
         if (receiverIds.size() != receivers.size()) {
-            throw new CustomException(ErrorCode.MEMBERS_NOT_FOUDN);
+            throw new CustomException(ErrorCode.MEMBERS_NOT_FOUND);
         }
         return receivers;
     }
@@ -116,7 +116,7 @@ public class SpaceService {
 
         List<Long> chatRoomIds = spaceMemberRepository.findChatRoomIdsByExactMembers(memberIds, memberIds.size());
         if (!chatRoomIds.isEmpty()) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_ALREADY_EXIST);
+            throw new CustomException(ErrorCode.SPACE_ALREADY_EXISTS);
         }
     }
 
@@ -167,7 +167,7 @@ public class SpaceService {
     public void validateParticipant(Long memberId, Long chatRoomId) {
         SpaceMember participant = spaceMemberRepository.findChatRoomBy(chatRoomId, memberId);
         if (participant == null) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST);
+            throw new CustomException(ErrorCode.SPACE_NOT_FOUND);
         }
     }
 
@@ -227,7 +227,7 @@ public class SpaceService {
         SpaceMember participant
                 = spaceMemberRepository.findChatRoomBy(chatRoomId, memberId);
         if (participant == null) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST);
+            throw new CustomException(ErrorCode.SPACE_NOT_FOUND);
         }
 
         spaceMemberRepository.deleteBy(chatRoomId, memberId);
@@ -249,11 +249,11 @@ public class SpaceService {
 
         SpaceMember participant = spaceMemberRepository.findChatRoomBy(chatRoomId, memberId);
         if (participant == null) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST);
+            throw new CustomException(ErrorCode.SPACE_NOT_FOUND);
         }
 
         Space space = spaceRepository.findById(chatRoomId)
-                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST));
+                .orElseThrow(() -> new CustomException(ErrorCode.SPACE_NOT_FOUND));
         space.rename(title);
 
         Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId);
@@ -264,7 +264,7 @@ public class SpaceService {
 
         SpaceMember participant = spaceMemberRepository.findChatRoomBy(chatRoomId, memberId);
         if (participant == null) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST);
+            throw new CustomException(ErrorCode.SPACE_NOT_FOUND);
         }
 
         return spaceMemberRepository.findAllFetchMemberBy(chatRoomId)
@@ -281,7 +281,7 @@ public class SpaceService {
 
         SpaceMember participant = spaceMemberRepository.findChatRoomBy(chatRoomId, memberId);
         if (participant == null) {
-            throw new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST);
+            throw new CustomException(ErrorCode.SPACE_NOT_FOUND);
         }
 
         Set<Long> existingMemberIds = spaceMemberRepository
@@ -291,7 +291,7 @@ public class SpaceService {
                 .collect(Collectors.toSet());
 
         Space space = spaceRepository.findById(chatRoomId).orElseThrow(
-                () -> new CustomException(ErrorCode.CHAT_ROOM_NOT_EXIST)
+                () -> new CustomException(ErrorCode.SPACE_NOT_FOUND)
         );
 
         List<Member> invitees = memberRepository.findAllById(inviteeIds);

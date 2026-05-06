@@ -138,7 +138,7 @@ public class IntegrationTextSocketHandler extends TextWebSocketHandler {
 
     private String mapErrorCode(ErrorCode errorCode) {
         return switch (errorCode) {
-            case CHAT_ROOM_NOT_EXIST -> "ROOM_NOT_FOUND";
+            case SPACE_NOT_FOUND -> "ROOM_NOT_FOUND";
             case USER_NOT_AUTHENTICATED -> "UNAUTHORIZED";
             default -> "INTERNAL_ERROR";
         };
