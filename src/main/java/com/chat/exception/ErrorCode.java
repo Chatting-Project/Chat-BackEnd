@@ -27,7 +27,9 @@ public enum ErrorCode {
 
     SPACE_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "이미 존재하는 Space입니다."),
     SPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 Space입니다."),
+    SPACE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 Space에 접근 권한이 없습니다."),
     MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 메시지입니다."),
+    DISCUSSION_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 Discussion입니다."),
 
     SPACE_BROADCAST_IO_EXCEPTION(HttpStatus.INTERNAL_SERVER_ERROR, "Space 전파 중 오류가 발생했습니다."),
     WEB_SOCKET_SESSION_NOT_EXIST(HttpStatus.INTERNAL_SERVER_ERROR, "웹소켓 세션이 존재하지 않습니다."),
