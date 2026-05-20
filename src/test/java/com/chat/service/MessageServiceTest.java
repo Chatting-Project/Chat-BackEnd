@@ -46,6 +46,10 @@ class MessageServiceTest {
     private SpaceManager spaceManager;
     @Autowired
     private EntityManager em;
+    @Autowired
+    private DiscussionRepository discussionRepository;
+    @Autowired
+    private DiscussionMessageRepository discussionMessageRepository;
 
     @AfterEach
     void tearDown() {
@@ -792,5 +796,94 @@ class MessageServiceTest {
         // then: 이벤트는 1건만 발행
         long eventCount = events.stream(PublishReadEvent.class).count();
         assertThat(eventCount).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Discussion 없는 메시지는 discussionId=null, discussionMessageCount=0을 반환한다.")
+    void findMessageHistory_messageWithoutDiscussion_discussionFieldsAreDefault() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        Space chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+
+        messageService.saveMessage(member.getId(), chatRoom.getId(), "hello");
+
+        // when
+        MessageHistoryResponse response = messageService.findMessageHistory(chatRoom.getId(), member.getId(), null);
+
+        // then
+        assertThat(response.getMessages()).hasSize(1);
+        MessageHistory msg = response.getMessages().get(0);
+        assertThat(msg.getDiscussionId()).isNull();
+        assertThat(msg.getDiscussionMessageCount()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("Discussion 있는 메시지는 discussionId와 count가 정확히 내려온다.")
+    void findMessageHistory_messageWithDiscussion_discussionIdAndCountReturned() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        Space chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+
+        Long chatId = messageService.saveMessage(member.getId(), chatRoom.getId(), "root message");
+        Message rootMessage = messageRepository.findById(chatId).get();
+        Discussion discussion = discussionRepository.save(Discussion.of(rootMessage));
+        discussionMessageRepository.save(DiscussionMessage.of("reply1", discussion, member));
+        discussionMessageRepository.save(DiscussionMessage.of("reply2", discussion, member));
+        discussionMessageRepository.save(DiscussionMessage.of("reply3", discussion, member));
+
+        // when
+        MessageHistoryResponse response = messageService.findMessageHistory(chatRoom.getId(), member.getId(), null);
+
+        // then
+        assertThat(response.getMessages()).hasSize(1);
+        MessageHistory msg = response.getMessages().get(0);
+        assertThat(msg.getDiscussionId()).isEqualTo(discussion.getId());
+        assertThat(msg.getDiscussionMessageCount()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("Discussion 있는 메시지와 없는 메시지가 섞여도 message별 discussion 정보가 정확히 매핑된다.")
+    void findMessageHistory_mixedMessages_discussionSummaryMappedPerMessage() {
+        // given
+        Member member = fixture.savedMemberBy("member");
+        Space chatRoom = fixture.savedChatRoomBy("room", List.of(member));
+        Long chatRoomId = chatRoom.getId();
+
+        // msg1: Discussion 있음 (reply 2개)
+        Long chatId1 = messageService.saveMessage(member.getId(), chatRoomId, "msg1");
+        Message rootMessage1 = messageRepository.findById(chatId1).get();
+        Discussion discussion1 = discussionRepository.save(Discussion.of(rootMessage1));
+        discussionMessageRepository.save(DiscussionMessage.of("reply1", discussion1, member));
+        discussionMessageRepository.save(DiscussionMessage.of("reply2", discussion1, member));
+
+        // msg2: Discussion 없음
+        messageService.saveMessage(member.getId(), chatRoomId, "msg2");
+
+        // msg3: Discussion 있음 (reply 5개)
+        Long chatId3 = messageService.saveMessage(member.getId(), chatRoomId, "msg3");
+        Message rootMessage3 = messageRepository.findById(chatId3).get();
+        Discussion discussion3 = discussionRepository.save(Discussion.of(rootMessage3));
+        for (int i = 1; i <= 5; i++) {
+            discussionMessageRepository.save(DiscussionMessage.of("reply" + i, discussion3, member));
+        }
+
+        // when
+        MessageHistoryResponse response = messageService.findMessageHistory(chatRoomId, member.getId(), null);
+
+        // then: 오름차순 반환(가장 오래된 msg1이 index 0)
+        List<MessageHistory> messages = response.getMessages();
+        assertThat(messages).hasSize(3);
+
+        MessageHistory msg1 = messages.get(0);
+        assertThat(msg1.getDiscussionId()).isEqualTo(discussion1.getId());
+        assertThat(msg1.getDiscussionMessageCount()).isEqualTo(2L);
+
+        MessageHistory msg2 = messages.get(1);
+        assertThat(msg2.getDiscussionId()).isNull();
+        assertThat(msg2.getDiscussionMessageCount()).isEqualTo(0L);
+
+        MessageHistory msg3 = messages.get(2);
+        assertThat(msg3.getDiscussionId()).isEqualTo(discussion3.getId());
+        assertThat(msg3.getDiscussionMessageCount()).isEqualTo(5L);
     }
 }
