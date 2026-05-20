@@ -4,6 +4,7 @@ import com.chat.entity.*;
 import com.chat.exception.CustomException;
 import com.chat.exception.ErrorCode;
 import com.chat.repository.*;
+import com.chat.repository.dtos.DiscussionSummary;
 import com.chat.repository.dtos.MessageUnreadMemberCount;
 import com.chat.service.dtos.MessageHistory;
 import com.chat.service.dtos.MessageHistoryResponse;
@@ -39,6 +40,7 @@ public class MessageService {
     private final SpaceRepository spaceRepository;
     private final SpaceMemberRepository spaceMemberRepository;
     private final MemberRepository memberRepository;
+    private final DiscussionRepository discussionRepository;
 
     public SaveMessageData findMessageData(Long chatId) {
         Message findChat = messageRepository.findById(chatId).orElseThrow(
@@ -158,10 +160,18 @@ public class MessageService {
                         MessageUnreadMemberCount::getUnreadMemberCount
                 ));
 
+        Map<Long, DiscussionSummary> discussionSummaryMap = discussionRepository
+                .findDiscussionSummariesByRootMessageIds(chatIds).stream()
+                .collect(Collectors.toMap(
+                        DiscussionSummary::getMessageId,
+                        ds -> ds
+                ));
+
         List<MessageHistory> messages = new ArrayList<>(chats.size());
         for (Message chat : chats) {
             Member sender = chat.getMember();
             Long unreadCount = unreadMemberCountMap.getOrDefault(chat.getId(), 0L);
+            DiscussionSummary ds = discussionSummaryMap.get(chat.getId());
 
             messages.add(MessageHistory.builder()
                     .chatId(chat.getId())
@@ -170,6 +180,8 @@ public class MessageService {
                     .message(chat.getContent())
                     .unreadMemberCount(unreadCount)
                     .createdDate(chat.getCreatedDate())
+                    .discussionId(ds != null ? ds.getDiscussionId() : null)
+                    .discussionMessageCount(ds != null ? ds.getDiscussionMessageCount() : 0L)
                     .build());
         }
 

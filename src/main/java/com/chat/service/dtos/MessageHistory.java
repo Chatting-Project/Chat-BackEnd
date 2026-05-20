@@ -14,14 +14,20 @@ public class MessageHistory {
     private String message;
     private Long unreadMemberCount;
     private LocalDateTime createdDate;
+    private Long discussionId;
+    private long discussionMessageCount;
 
     @Builder
-    public MessageHistory(Long chatId, Long senderId, String senderNickname, String message, Long unreadMemberCount, LocalDateTime createdDate) {
+    public MessageHistory(Long chatId, Long senderId, String senderNickname, String message,
+                          Long unreadMemberCount, LocalDateTime createdDate,
+                          Long discussionId, long discussionMessageCount) {
         this.chatId = chatId;
         this.senderId = senderId;
         this.senderNickname = senderNickname;
         this.message = message;
         this.unreadMemberCount = unreadMemberCount;
         this.createdDate = createdDate;
+        this.discussionId = discussionId;
+        this.discussionMessageCount = discussionMessageCount;
     }
 }
