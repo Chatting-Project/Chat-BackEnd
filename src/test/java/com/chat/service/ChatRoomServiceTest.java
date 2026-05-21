@@ -21,10 +21,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -42,49 +40,47 @@ class ChatRoomServiceTest {
     private TestDataFixture fixture;
 
     @Test
-    @DisplayName("채팅방을 저장한다.")
+    @DisplayName("title과 생성자만으로 Space를 생성한다.")
     void saveChatRoomTest() {
         // given
-        String title = "title";
-
-        Member sender = fixture.savedMemberBy("sender");
-        Member firstReceiver = fixture.savedMemberBy("firstReceiver");
-        Member secondReceiver = fixture.savedMemberBy("secondReceiver");
-
-        Set<Long> receiverIds = new HashSet<>();
-        receiverIds.add(firstReceiver.getId());
-        receiverIds.add(secondReceiver.getId());
+        String title = "개발팀";
+        Member creator = fixture.savedMemberBy("creator");
 
         SaveSpaceDTO dto = SaveSpaceDTO
                 .builder()
                 .title(title)
-                .senderId(sender.getId())
-                .receiverIds(receiverIds)
+                .senderId(creator.getId())
                 .build();
 
         // when
-        Long savedChatRoomId = spaceService.saveSpace(dto);
+        Long savedSpaceId = spaceService.saveSpace(dto);
 
         // then
-        Space chatRoom = spaceRepository.findById(savedChatRoomId).get();
+        Space savedSpace = spaceRepository.findById(savedSpaceId).get();
+        List<SpaceMember> participants = spaceMemberRepository.findAllFetchMemberBy(savedSpaceId);
 
-        List<SpaceMember> chatRoomParticipants
-                = spaceMemberRepository.findAllFetchMemberBy(savedChatRoomId);
+        assertThat(savedSpace.getTitle()).isEqualTo(title);
+        assertThat(participants).hasSize(1);
+        assertThat(participants.get(0).getMember().getId()).isEqualTo(creator.getId());
+    }
 
-        Set<Long> participantMemberIds = chatRoomParticipants.stream()
-                .map(p -> p.getMember().getId())
-                .collect(Collectors.toSet());
+    @Test
+    @DisplayName("Space 생성 시 title이 빈 문자열이면 EMPTY_SPACE_TITLE 예외가 발생한다.")
+    void saveSpace_blankTitle_throwsExceptionTest() {
+        // given
+        Member creator = fixture.savedMemberBy("creator");
 
-        Set<Long> expectedMemberIds = Set.of(
-                sender.getId(),
-                firstReceiver.getId(),
-                secondReceiver.getId()
-        );
+        SaveSpaceDTO dto = SaveSpaceDTO
+                .builder()
+                .title("")
+                .senderId(creator.getId())
+                .build();
 
-        assertThat(chatRoom.getTitle()).isEqualTo(title);
-        assertThat(participantMemberIds)
-                .hasSize(3)
-                .containsExactlyInAnyOrderElementsOf(expectedMemberIds);
+        // when & then
+        assertThatThrownBy(() -> spaceService.saveSpace(dto))
+                .isInstanceOf(CustomException.class)
+                .extracting(ex -> ((CustomException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.EMPTY_SPACE_TITLE);
     }
 
     @Test

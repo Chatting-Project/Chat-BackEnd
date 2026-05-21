@@ -33,7 +33,6 @@ public class SpaceApiController {
         SaveSpaceDTO saveChatRooomDto = SaveSpaceDTO
                 .builder()
                 .senderId(loginMemberId)
-                .receiverIds(request.getReceiverIds())
                 .title(request.getTitle())
                 .build();
         Long chatRoomId = spaceService.saveSpace(saveChatRooomDto);

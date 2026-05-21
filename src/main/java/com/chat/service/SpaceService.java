@@ -28,7 +28,6 @@ import org.springframework.web.socket.WebSocketSession;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -75,84 +74,15 @@ public class SpaceService {
 
     @Transactional
     public Long saveSpace(SaveSpaceDTO saveSpaceDTO) {
+        Member sender = memberRepository.findById(saveSpaceDTO.getSenderId())
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-        Long senderId = saveSpaceDTO.getSenderId();
-        Set<Long> receiverIds = saveSpaceDTO.getReceiverIds();
-        isSenderIncludeInReceivers(senderId, receiverIds);
-
-        Member findSender = memberRepository.findById(senderId).orElseThrow(
-                () -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-        List<Member> findReceivers = findReceiverMembers(saveSpaceDTO.getReceiverIds());
-
-        isExistSpace(senderId, receiverIds);
-
-        List<String> participants = createParticipants(findSender, findReceivers);
-
-        String title = ensureTitle(saveSpaceDTO.getTitle(), participants);
-
-        Space space = Space.of(title);
+        Space space = Space.of(saveSpaceDTO.getTitle());
         Space savedSpace = spaceRepository.save(space);
 
-        saveSpaceParticipants(savedSpace, findSender, findReceivers);
+        spaceMemberRepository.save(SpaceMember.of(sender, savedSpace));
 
         return savedSpace.getId();
-    }
-
-    private void isSenderIncludeInReceivers(Long senderId, Set<Long> receiverIds) {
-        if (receiverIds.contains(senderId)) {
-            throw new CustomException(ErrorCode.INCLUDE_SENDER_IN_RECEIVERS);
-        }
-    }
-
-    private List<Member> findReceiverMembers(Set<Long> receiverIds) {
-        List<Member> receivers = memberRepository.findAllById(receiverIds);
-        if (receiverIds.size() != receivers.size()) {
-            throw new CustomException(ErrorCode.MEMBERS_NOT_FOUND);
-        }
-        return receivers;
-    }
-
-    private void isExistSpace(Long senderId, Set<Long> receiverIds) {
-        List<Long> memberIds = Stream.concat(Stream.of(senderId), receiverIds.stream())
-                .collect(Collectors.toList());
-
-        List<Long> chatRoomIds = spaceMemberRepository.findChatRoomIdsByExactMembers(memberIds, memberIds.size());
-        if (!chatRoomIds.isEmpty()) {
-            throw new CustomException(ErrorCode.SPACE_ALREADY_EXISTS);
-        }
-    }
-
-    private String ensureTitle(String title, List<String> participants) {
-        if (title == null || title.isEmpty()) {
-            return generateDefaultTitle(participants);
-        }
-
-        return title;
-    }
-
-    private String generateDefaultTitle(List<String> participants) {
-        return participants.stream()
-                .sorted()
-                .collect(Collectors.joining(", "));
-    }
-
-    private List<String> createParticipants(Member sender, List<Member> receivers) {
-        List<String> receiverUsernames = receivers.stream()
-                .map(Member::getUsername)
-                .collect(Collectors.toList());
-        receiverUsernames.add(sender.getUsername());
-
-        return receiverUsernames;
-    }
-
-    private void saveSpaceParticipants(Space space, Member sender, List<Member> receivers) {
-        SpaceMember senderSpaceMember = SpaceMember.of(sender, space);
-        spaceMemberRepository.save(senderSpaceMember);
-
-        for (Member findReceiver : receivers) {
-            SpaceMember receiverSpaceMember = SpaceMember.of(findReceiver, space);
-            spaceMemberRepository.save(receiverSpaceMember);
-        }
     }
 
     public List<SpaceSummaryResponse> findSpaces(Long memberId) {
