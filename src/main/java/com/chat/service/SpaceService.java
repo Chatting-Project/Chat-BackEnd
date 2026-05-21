@@ -1,5 +1,6 @@
 package com.chat.service;
 
+import com.chat.api.response.chatroom.SpaceInviteInfoResponse;
 import com.chat.api.response.chatroom.SpaceMemberResponse;
 import com.chat.api.response.chatroom.SpaceSummaryResponse;
 import com.chat.entity.*;
@@ -272,6 +273,35 @@ public class SpaceService {
                         crp.getMember().getNickname()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public SpaceInviteInfoResponse findSpaceByInviteCode(Long loginMemberId, String inviteCode) {
+        Space space = spaceRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
+
+        long memberCount = spaceMemberRepository.countBySpaceId(space.getId());
+        boolean alreadyJoined = spaceMemberRepository.findChatRoomBy(space.getId(), loginMemberId) != null;
+
+        return new SpaceInviteInfoResponse(space.getId(), space.getTitle(), memberCount, alreadyJoined);
+    }
+
+    @Transactional
+    public Long joinSpaceByInviteCode(Long loginMemberId, String inviteCode) {
+        Space space = spaceRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_CODE));
+
+        SpaceMember existing = spaceMemberRepository.findChatRoomBy(space.getId(), loginMemberId);
+        if (existing != null) {
+            return space.getId();
+        }
+
+        Member member = memberRepository.findById(loginMemberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        spaceMemberRepository.save(SpaceMember.of(member, space));
+
+        return space.getId();
     }
 
     @Transactional

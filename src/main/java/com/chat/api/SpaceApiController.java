@@ -2,6 +2,8 @@ package com.chat.api;
 
 import com.chat.api.request.chatroom.InviteMembersRequest;
 import com.chat.api.request.chatroom.RenameSpaceRequest;
+import com.chat.api.response.chatroom.SpaceInviteInfoResponse;
+import com.chat.api.response.chatroom.SpaceJoinResponse;
 import com.chat.api.response.chatroom.SpaceMemberResponse;
 import com.chat.api.response.chatroom.SpaceResponse;
 import com.chat.api.response.chatroom.SpaceSummaryResponse;
@@ -103,6 +105,32 @@ public class SpaceApiController {
         return Result.<Void>builder()
                 .status(HttpStatus.OK)
                 .message("멤버 초대가 완료됐습니다.")
+                .build();
+    }
+
+    @GetMapping("/api/spaces/invite/{inviteCode}")
+    public Result<SpaceInviteInfoResponse> getSpaceByInviteCode(@PathVariable String inviteCode,
+                                                                @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+
+        SpaceInviteInfoResponse response = spaceService.findSpaceByInviteCode(loginMemberId, inviteCode);
+
+        return Result.<SpaceInviteInfoResponse>builder()
+                .data(response)
+                .status(HttpStatus.OK)
+                .message("Space 정보 조회가 완료됐습니다.")
+                .build();
+    }
+
+    @PostMapping("/api/spaces/invite/{inviteCode}/join")
+    public Result<SpaceJoinResponse> joinSpaceByInviteCode(@PathVariable String inviteCode,
+                                                           @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+
+        Long spaceId = spaceService.joinSpaceByInviteCode(loginMemberId, inviteCode);
+
+        return Result.<SpaceJoinResponse>builder()
+                .data(new SpaceJoinResponse(spaceId))
+                .status(HttpStatus.OK)
+                .message("Space에 참여했습니다.")
                 .build();
     }
 }

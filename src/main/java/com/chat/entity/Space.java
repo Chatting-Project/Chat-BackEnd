@@ -10,6 +10,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -25,9 +26,13 @@ public class Space extends BaseEntity {
     @Column(nullable = false)
     private String title;
 
+    @Column(name = "invite_code", nullable = false, unique = true)
+    private String inviteCode;
+
     private Space(String title) {
         validateTitle(title);
         this.title = title;
+        this.inviteCode = generateInviteCode();
     }
 
     public static Space of(String title) {
@@ -43,5 +48,9 @@ public class Space extends BaseEntity {
         if (title == null || title.isBlank()) {
             throw new CustomException(ErrorCode.EMPTY_SPACE_TITLE);
         }
+    }
+
+    private static String generateInviteCode() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
 }

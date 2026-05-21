@@ -108,4 +108,7 @@ public interface SpaceMemberRepository extends JpaRepository<SpaceMember, Long> 
             " GROUP BY c.id")
     List<MessageUnreadMemberCount> countMessageUnreadMembers(@Param("messageIds") List<Long> messageIds);
 
+    @Query("SELECT COUNT(sm) FROM SpaceMember sm WHERE sm.space.id = :spaceId")
+    long countBySpaceId(@Param("spaceId") Long spaceId);
+
 }

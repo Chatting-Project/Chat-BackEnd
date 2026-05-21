@@ -105,4 +105,30 @@ class SpaceTest {
             assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EMPTY_SPACE_TITLE);
         });
     }
+
+    @Test
+    @DisplayName("Space 생성 시 inviteCode가 자동으로 생성된다.")
+    void createSpace_inviteCodeGeneratedTest() {
+        // given
+        String title = "개발팀";
+
+        // when
+        Space space = Space.of(title);
+
+        // then
+        assertThat(space.getInviteCode()).isNotNull();
+        assertThat(space.getInviteCode()).isNotBlank();
+        assertThat(space.getInviteCode()).hasSize(32);
+    }
+
+    @Test
+    @DisplayName("두 Space의 inviteCode는 서로 다르다.")
+    void createSpace_inviteCodeIsUniqueTest() {
+        // given & when
+        Space space1 = Space.of("팀A");
+        Space space2 = Space.of("팀B");
+
+        // then
+        assertThat(space1.getInviteCode()).isNotEqualTo(space2.getInviteCode());
+    }
 }

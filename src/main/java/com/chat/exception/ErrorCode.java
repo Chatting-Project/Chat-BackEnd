@@ -28,6 +28,7 @@ public enum ErrorCode {
     SPACE_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "이미 존재하는 Space입니다."),
     SPACE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 Space입니다."),
     SPACE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 Space에 접근 권한이 없습니다."),
+    INVALID_INVITE_CODE(HttpStatus.NOT_FOUND, "유효하지 않은 초대 코드입니다."),
     MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 메시지입니다."),
     DISCUSSION_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 Discussion입니다."),
 

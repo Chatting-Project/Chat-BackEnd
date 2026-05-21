@@ -1,5 +1,6 @@
 package com.chat.service;
 
+import com.chat.api.response.chatroom.SpaceInviteInfoResponse;
 import com.chat.api.response.chatroom.SpaceMemberResponse;
 import com.chat.api.response.chatroom.SpaceSummaryResponse;
 import com.chat.entity.Message;
@@ -7,6 +8,7 @@ import com.chat.entity.Space;
 import com.chat.entity.SpaceMember;
 import com.chat.entity.Member;
 import com.chat.exception.CustomException;
+import com.chat.exception.ErrorCode;
 import com.chat.fixture.TestDataFixture;
 import com.chat.repository.SpaceMemberRepository;
 import com.chat.repository.SpaceRepository;
@@ -319,6 +321,100 @@ class ChatRoomServiceTest {
 
         // then
         assertThat(chatRooms.get(0).getUnreadMessageCount()).isEqualTo(0L);
+    }
+
+    @Test
+    @DisplayName("inviteCode로 Space 정보를 조회한다.")
+    void findSpaceByInviteCodeTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Member other = fixture.savedMemberBy("other");
+        Space space = fixture.savedChatRoomBy("개발팀", List.of(me, other));
+
+        // when
+        SpaceInviteInfoResponse response =
+                spaceService.findSpaceByInviteCode(me.getId(), space.getInviteCode());
+
+        // then
+        assertThat(response.getSpaceId()).isEqualTo(space.getId());
+        assertThat(response.getTitle()).isEqualTo("개발팀");
+        assertThat(response.getMemberCount()).isEqualTo(2L);
+        assertThat(response.isAlreadyJoined()).isTrue();
+    }
+
+    @Test
+    @DisplayName("참여하지 않은 사용자가 inviteCode로 조회하면 alreadyJoined가 false이다.")
+    void findSpaceByInviteCode_notJoined_alreadyJoinedFalseTest() {
+        // given
+        Member owner = fixture.savedMemberBy("owner");
+        Member stranger = fixture.savedMemberBy("stranger");
+        Space space = fixture.savedChatRoomBy("개발팀", List.of(owner));
+
+        // when
+        SpaceInviteInfoResponse response =
+                spaceService.findSpaceByInviteCode(stranger.getId(), space.getInviteCode());
+
+        // then
+        assertThat(response.isAlreadyJoined()).isFalse();
+        assertThat(response.getMemberCount()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("잘못된 inviteCode로 조회하면 INVALID_INVITE_CODE 예외가 발생한다.")
+    void findSpaceByInviteCode_invalidCode_throwsExceptionTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+
+        // when & then
+        assertThatThrownBy(() -> spaceService.findSpaceByInviteCode(me.getId(), "invalidcode000000000000000000000"))
+                .isInstanceOf(CustomException.class)
+                .extracting(ex -> ((CustomException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INVITE_CODE);
+    }
+
+    @Test
+    @DisplayName("inviteCode로 Space에 참여하면 SpaceMember가 생성된다.")
+    void joinSpaceByInviteCodeTest() {
+        // given
+        Member owner = fixture.savedMemberBy("owner");
+        Member newbie = fixture.savedMemberBy("newbie");
+        Space space = fixture.savedChatRoomBy("개발팀", List.of(owner));
+
+        // when
+        Long returnedSpaceId = spaceService.joinSpaceByInviteCode(newbie.getId(), space.getInviteCode());
+
+        // then
+        assertThat(returnedSpaceId).isEqualTo(space.getId());
+        SpaceMember joined = spaceMemberRepository.findChatRoomBy(space.getId(), newbie.getId());
+        assertThat(joined).isNotNull();
+    }
+
+    @Test
+    @DisplayName("이미 참여 중인 사용자가 join을 호출해도 SpaceMember가 중복 생성되지 않는다.")
+    void joinSpaceByInviteCode_alreadyJoined_noDuplicateTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Space space = fixture.savedChatRoomBy("개발팀", List.of(me));
+
+        // when
+        Long returnedSpaceId = spaceService.joinSpaceByInviteCode(me.getId(), space.getInviteCode());
+
+        // then
+        assertThat(returnedSpaceId).isEqualTo(space.getId());
+        assertThat(spaceMemberRepository.countBySpaceId(space.getId())).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("잘못된 inviteCode로 join하면 INVALID_INVITE_CODE 예외가 발생한다.")
+    void joinSpaceByInviteCode_invalidCode_throwsExceptionTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+
+        // when & then
+        assertThatThrownBy(() -> spaceService.joinSpaceByInviteCode(me.getId(), "invalidcode000000000000000000000"))
+                .isInstanceOf(CustomException.class)
+                .extracting(ex -> ((CustomException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_INVITE_CODE);
     }
 
     private List<Member> createParticipantsBy(Member first, Member second) {
