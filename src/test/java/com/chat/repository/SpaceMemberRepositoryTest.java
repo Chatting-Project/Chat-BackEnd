@@ -620,6 +620,47 @@ class SpaceMemberRepositoryTest {
         assertThat(countMap.get(second.getId())).isEqualTo(2L);
     }
 
+    @Test
+    @DisplayName("Space 참여자는 inviteCode를 조회할 수 있다.")
+    void findInviteCodeBySpaceIdAndMemberId_participantTest() {
+        // given
+        Member member = createMemberBy("member");
+        Space space = createChatRoomBy("개발팀");
+        spaceMemberRepository.save(SpaceMember.of(member, space));
+
+        em.flush();
+        em.clear();
+
+        // when
+        java.util.Optional<String> result = spaceMemberRepository
+                .findInviteCodeBySpaceIdAndMemberId(space.getId(), member.getId());
+
+        // then
+        assertThat(result).isPresent();
+        assertThat(result.get()).isEqualTo(space.getInviteCode());
+        assertThat(result.get()).hasSize(32);
+    }
+
+    @Test
+    @DisplayName("Space 미참여자는 findInviteCodeBySpaceIdAndMemberId 호출 시 Optional.empty를 반환한다.")
+    void findInviteCodeBySpaceIdAndMemberId_nonParticipantTest() {
+        // given
+        Member member = createMemberBy("member");
+        Member stranger = createMemberBy("stranger");
+        Space space = createChatRoomBy("개발팀");
+        spaceMemberRepository.save(SpaceMember.of(member, space));
+
+        em.flush();
+        em.clear();
+
+        // when
+        java.util.Optional<String> result = spaceMemberRepository
+                .findInviteCodeBySpaceIdAndMemberId(space.getId(), stranger.getId());
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
     private Member createMemberBy(String username) {
         String commonPassword = "commonPassword";
         Member member = Member.of(username, commonPassword, username);

@@ -2,6 +2,7 @@ package com.chat.api;
 
 import com.chat.api.request.chatroom.InviteMembersRequest;
 import com.chat.api.request.chatroom.RenameSpaceRequest;
+import com.chat.api.response.chatroom.SpaceInviteCodeResponse;
 import com.chat.api.response.chatroom.SpaceInviteInfoResponse;
 import com.chat.api.response.chatroom.SpaceJoinResponse;
 import com.chat.api.response.chatroom.SpaceMemberResponse;
@@ -105,6 +106,19 @@ public class SpaceApiController {
         return Result.<Void>builder()
                 .status(HttpStatus.OK)
                 .message("멤버 초대가 완료됐습니다.")
+                .build();
+    }
+
+    @GetMapping("/api/spaces/{spaceId}/invite-code")
+    public Result<SpaceInviteCodeResponse> getInviteCode(@PathVariable Long spaceId,
+                                                         @SessionAttribute(name = SessionConst.SESSION_ID) Long loginMemberId) {
+
+        SpaceInviteCodeResponse response = spaceService.getSpaceInviteCode(loginMemberId, spaceId);
+
+        return Result.<SpaceInviteCodeResponse>builder()
+                .data(response)
+                .status(HttpStatus.OK)
+                .message("초대 코드 조회가 완료됐습니다.")
                 .build();
     }
 

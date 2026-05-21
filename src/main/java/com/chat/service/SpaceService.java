@@ -1,5 +1,6 @@
 package com.chat.service;
 
+import com.chat.api.response.chatroom.SpaceInviteCodeResponse;
 import com.chat.api.response.chatroom.SpaceInviteInfoResponse;
 import com.chat.api.response.chatroom.SpaceMemberResponse;
 import com.chat.api.response.chatroom.SpaceSummaryResponse;
@@ -273,6 +274,15 @@ public class SpaceService {
                         crp.getMember().getNickname()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public SpaceInviteCodeResponse getSpaceInviteCode(Long loginMemberId, Long spaceId) {
+        String inviteCode = spaceMemberRepository
+                .findInviteCodeBySpaceIdAndMemberId(spaceId, loginMemberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SPACE_NOT_FOUND));
+
+        return new SpaceInviteCodeResponse(inviteCode);
     }
 
     @Transactional(readOnly = true)

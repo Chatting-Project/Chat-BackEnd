@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SpaceMemberRepository extends JpaRepository<SpaceMember, Long> {
 
@@ -110,5 +111,12 @@ public interface SpaceMemberRepository extends JpaRepository<SpaceMember, Long> 
 
     @Query("SELECT COUNT(sm) FROM SpaceMember sm WHERE sm.space.id = :spaceId")
     long countBySpaceId(@Param("spaceId") Long spaceId);
+
+    @Query("SELECT sm.space.inviteCode" +
+            " FROM SpaceMember sm" +
+            " WHERE sm.space.id = :spaceId" +
+            " AND sm.member.id = :memberId")
+    Optional<String> findInviteCodeBySpaceIdAndMemberId(@Param("spaceId") Long spaceId,
+                                                        @Param("memberId") Long memberId);
 
 }

@@ -1,5 +1,6 @@
 package com.chat.service;
 
+import com.chat.api.response.chatroom.SpaceInviteCodeResponse;
 import com.chat.api.response.chatroom.SpaceInviteInfoResponse;
 import com.chat.api.response.chatroom.SpaceMemberResponse;
 import com.chat.api.response.chatroom.SpaceSummaryResponse;
@@ -415,6 +416,50 @@ class ChatRoomServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(ex -> ((CustomException) ex).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_INVITE_CODE);
+    }
+
+    @Test
+    @DisplayName("Space 참여자는 getSpaceInviteCode로 inviteCode를 조회할 수 있다.")
+    void getSpaceInviteCodeTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Space space = fixture.savedChatRoomBy("개발팀", List.of(me));
+
+        // when
+        SpaceInviteCodeResponse response = spaceService.getSpaceInviteCode(me.getId(), space.getId());
+
+        // then
+        assertThat(response.getInviteCode()).isEqualTo(space.getInviteCode());
+        assertThat(response.getInviteCode()).hasSize(32);
+    }
+
+    @Test
+    @DisplayName("Space 미참여자가 getSpaceInviteCode를 호출하면 SPACE_NOT_FOUND 예외가 발생한다.")
+    void getSpaceInviteCode_notParticipant_throwsExceptionTest() {
+        // given
+        Member owner = fixture.savedMemberBy("owner");
+        Member stranger = fixture.savedMemberBy("stranger");
+        Space space = fixture.savedChatRoomBy("개발팀", List.of(owner));
+
+        // when & then
+        assertThatThrownBy(() -> spaceService.getSpaceInviteCode(stranger.getId(), space.getId()))
+                .isInstanceOf(CustomException.class)
+                .extracting(ex -> ((CustomException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.SPACE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 spaceId로 getSpaceInviteCode를 호출하면 SPACE_NOT_FOUND 예외가 발생한다.")
+    void getSpaceInviteCode_nonExistentSpace_throwsExceptionTest() {
+        // given
+        Member me = fixture.savedMemberBy("me");
+        Long nonExistentSpaceId = 999_999L;
+
+        // when & then
+        assertThatThrownBy(() -> spaceService.getSpaceInviteCode(me.getId(), nonExistentSpaceId))
+                .isInstanceOf(CustomException.class)
+                .extracting(ex -> ((CustomException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.SPACE_NOT_FOUND);
     }
 
     private List<Member> createParticipantsBy(Member first, Member second) {
