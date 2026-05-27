@@ -14,7 +14,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketConfigurer {
 
-    @Value("${app.allowed-origin:http://localhost:3000}")
+    @Value("${app.allowed-origin:http://localhost:3001}")
     private String allowedOrigin;
 
     private final IntegrationTextSocketHandler integrationTextSocketHandler;
