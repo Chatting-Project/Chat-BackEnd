@@ -7,9 +7,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum MessageType {
 
-    CHAT_MESSAGE("CHAT_MESSAGE"),
+    CHAT_MESSAGE("채팅 메시지"),
     CHAT_ENTER("채팅방 접속"),
-    UPDATE_CHAT_ROOM("UPDATE_CHAT_ROOM"),
+    ENTER_ROOM("채팅방 입장 요청"),
+    UPDATE_CHAT_ROOM("채팅방 목록 갱신"),
+    READ_EVENT("읽음 이벤트"),
+    ROOM_ACTIVE("방 활성화"),
+    ROOM_INACTIVE("방 비활성화"),
+    DISCUSSION_MESSAGE("Discussion 메시지 전송"),
+    DISCUSSION_MESSAGE_EVENT("Discussion 메시지 이벤트"),
+    ERROR("에러 응답"),
     ;
 
     private final String description;

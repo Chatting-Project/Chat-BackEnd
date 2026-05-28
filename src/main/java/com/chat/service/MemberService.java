@@ -9,16 +9,17 @@ import com.chat.exception.ErrorCode;
 import com.chat.repository.MemberRepository;
 import com.chat.service.dtos.LoginResponse;
 import com.chat.service.utils.PasswordEncoder;
-import com.chat.socket.manager.ChatRoomManager;
+import com.chat.socket.manager.SpaceManager;
 import com.chat.socket.manager.WebsocketSessionManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.socket.WebSocketSession;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 @Slf4j
 @Service
@@ -29,8 +30,7 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final WebsocketSessionManager websocketSessionManager;
-    private final ChatRoomManager chatRoomManager;
-    private final ChatRoomParticipantService chatRoomParticipantService;
+    private final SpaceManager spaceManager;
 
     @Transactional
     public Long join(JoinRequest request) {
@@ -48,7 +48,7 @@ public class MemberService {
         return memberRepository.save(member).getId();
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public LoginResponse login(LoginRequest request) {
         Member findMember = memberRepository.findByUsername(request.getUsername()).orElseThrow(
                 () -> new CustomException(ErrorCode.USERNAME_NOT_MATCH)
@@ -84,18 +84,29 @@ public class MemberService {
         return getMembersResponses;
     }
 
-    public void removeSession(Long memberId) {
+    @Transactional
+    public void changeNickname(Long memberId, String nickname) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        member.changeNickname(nickname);
+    }
 
-        Set<Long> chatRoomIds = chatRoomManager.getChatRoomIdsBy(memberId);
-        if (chatRoomIds == null || chatRoomIds.isEmpty()) {
-            return;
+    @Transactional
+    public void changePassword(Long memberId, String currentPassword, String newPassword) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        boolean isMatch = passwordEncoder.match(currentPassword, member.getPassword());
+        if (!isMatch) {
+            throw new CustomException(ErrorCode.PASSWORD_NOT_MATCH);
         }
 
-        for (Long chatRoomId : chatRoomIds) {
-            chatRoomParticipantService.leaveChatRoom(chatRoomId, memberId);
-            chatRoomManager.removeChatRoomSession(chatRoomId, memberId);
-        }
+        member.changePassword(passwordEncoder.encode(newPassword));
+    }
 
-        websocketSessionManager.removeSession(memberId);
+    public void removeSession(Long memberId, WebSocketSession closingSession) {
+        spaceManager.removeSessionFromSpace(closingSession);
+        websocketSessionManager.removeSession(memberId, closingSession);
+        spaceManager.removeSessionState(closingSession);
     }
 }

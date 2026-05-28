@@ -1,0 +1,218 @@
+package com.chat.service;
+
+import com.chat.entity.*;
+import com.chat.exception.CustomException;
+import com.chat.exception.ErrorCode;
+import com.chat.repository.*;
+import com.chat.repository.dtos.DiscussionSummary;
+import com.chat.repository.dtos.MessageUnreadMemberCount;
+import com.chat.service.dtos.MessageHistory;
+import com.chat.service.dtos.MessageHistoryResponse;
+import com.chat.service.dtos.SaveMessageData;
+import com.chat.service.dtos.chat.UpdateChatRoom;
+import com.chat.socket.event.PublishReadEvent;
+import com.chat.socket.manager.SpaceManager;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class MessageService {
+
+    private static final int PAGE_SIZE = 30;
+
+    private final ApplicationEventPublisher publisher;
+
+    private final BroadcastDataBuilder broadcastDataBuilder;
+
+    private final SpaceManager spaceManager;
+
+    private final MessageRepository messageRepository;
+    private final SpaceRepository spaceRepository;
+    private final SpaceMemberRepository spaceMemberRepository;
+    private final MemberRepository memberRepository;
+    private final DiscussionRepository discussionRepository;
+
+    public SaveMessageData findMessageData(Long chatId) {
+        Message findChat = messageRepository.findById(chatId).orElseThrow(
+                () -> new CustomException(ErrorCode.MESSAGE_NOT_FOUND)
+        );
+        Long unreadMemberCount = spaceMemberRepository.countMessageUnreadMembers(chatId);
+
+        return SaveMessageData
+                .builder()
+                .chatId(findChat.getId())
+                .createdDate(findChat.getCreatedDate())
+                .unreadMemberCount(unreadMemberCount)
+                .build();
+    }
+
+    @Transactional
+    public Long saveMessage(Long senderId, Long chatRoomId, String message) {
+
+        Member findSender = memberRepository.findById(senderId).orElseThrow(
+                () -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)
+        );
+        Space findChatRoom = spaceRepository.findById(chatRoomId).orElseThrow(
+                () -> new CustomException(ErrorCode.SPACE_NOT_FOUND)
+        );
+
+        Message savedChat = messageRepository.save(Message.of(message, findSender, findChatRoom));
+        updateCursorsOnSend(findSender.getId(), findChatRoom.getId(), savedChat);
+
+        return savedChat.getId();
+    }
+
+    private void updateCursorsOnSend(Long senderId, Long chatRoomId, Message chat) {
+
+        List<SpaceMember> findSpaceMembers
+                = spaceMemberRepository.findAllFetchMemberBy(chatRoomId);
+
+        List<Long> readMemberIds = new ArrayList<>();
+
+        for (SpaceMember crp : findSpaceMembers) {
+            Long memberId = crp.getMember().getId();
+            boolean isRead = memberId.equals(senderId)
+                    || spaceManager.isSpaceActive(memberId, chatRoomId);
+            if (isRead) {
+                readMemberIds.add(memberId);
+            }
+        }
+
+        for (Long memberId : readMemberIds) {
+            spaceMemberRepository.updateLastReadMessageId(memberId, chatRoomId, chat.getId());
+        }
+    }
+
+    @Transactional
+    public MessageHistoryResponse findMessageHistory(Long chatRoomId, Long memberId, Long beforeChatId) {
+
+        Member findMember = memberRepository.findById(memberId).orElseThrow(
+                () -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)
+        );
+
+        return createMessageHistoryResponse(chatRoomId, findMember.getId(), beforeChatId);
+    }
+
+    private MessageHistoryResponse createMessageHistoryResponse(Long chatRoomId, Long memberId, Long beforeChatId) {
+
+        PageRequest pageable = PageRequest.of(0, PAGE_SIZE + 1);
+        List<Message> chats;
+
+        if (beforeChatId == null) {
+            chats = messageRepository.findLatestMessages(chatRoomId, pageable);
+        } else {
+            chats = messageRepository.findMessagesBeforeId(chatRoomId, beforeChatId, pageable);
+        }
+
+        if (chats.isEmpty()) {
+            return new MessageHistoryResponse(null, List.of(), false);
+        }
+
+        boolean hasMore = chats.size() > PAGE_SIZE;
+        if (hasMore) {
+            chats = new ArrayList<>(chats.subList(0, PAGE_SIZE));
+        } else {
+            chats = new ArrayList<>(chats);
+        }
+        Collections.reverse(chats);
+
+        List<Long> chatIds = chats.stream()
+                .map(Message::getId)
+                .toList();
+
+        Long lastReadMessageId = null;
+
+        if (beforeChatId == null) {
+            lastReadMessageId = spaceMemberRepository
+                    .findLastReadMessageIdBy(memberId, chatRoomId);
+
+            Long currentLastReadChatId = chats.get(chats.size() - 1).getId();
+            int updatedCount = spaceMemberRepository.updateLastReadMessageId(
+                    memberId, chatRoomId, currentLastReadChatId
+            );
+
+            if (updatedCount > 0) {
+                Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId, Set.of(memberId));
+                publisher.publishEvent(new PublishReadEvent(
+                        memberId,
+                        chatRoomId,
+                        lastReadMessageId,
+                        currentLastReadChatId,
+                        updatesByMemberId
+                ));
+            }
+        }
+
+        Map<Long, Long> unreadMemberCountMap = spaceMemberRepository
+                .countMessageUnreadMembers(chatIds).stream()
+                .collect(Collectors.toMap(
+                        MessageUnreadMemberCount::getChatId,
+                        MessageUnreadMemberCount::getUnreadMemberCount
+                ));
+
+        Map<Long, DiscussionSummary> discussionSummaryMap = discussionRepository
+                .findDiscussionSummariesByRootMessageIds(chatIds).stream()
+                .collect(Collectors.toMap(
+                        DiscussionSummary::getMessageId,
+                        ds -> ds
+                ));
+
+        List<MessageHistory> messages = new ArrayList<>(chats.size());
+        for (Message chat : chats) {
+            Member sender = chat.getMember();
+            Long unreadCount = unreadMemberCountMap.getOrDefault(chat.getId(), 0L);
+            DiscussionSummary ds = discussionSummaryMap.get(chat.getId());
+
+            messages.add(MessageHistory.builder()
+                    .chatId(chat.getId())
+                    .senderNickname(sender.getNickname())
+                    .senderId(sender.getId())
+                    .message(chat.getContent())
+                    .unreadMemberCount(unreadCount)
+                    .createdDate(chat.getCreatedDate())
+                    .discussionId(ds != null ? ds.getDiscussionId() : null)
+                    .discussionMessageCount(ds != null ? ds.getDiscussionMessageCount() : 0L)
+                    .build());
+        }
+
+        return new MessageHistoryResponse(lastReadMessageId, messages, hasMore);
+    }
+
+    @Transactional
+    public void onRoomActive(Long memberId, Long chatRoomId) {
+        Optional<Long> latestChatIdOpt = messageRepository.findLastMessageIdBy(chatRoomId);
+        if (latestChatIdOpt.isEmpty()) {
+            return;
+        }
+        Long latestChatId = latestChatIdOpt.get();
+
+        Long previousLastReadChatId =
+                spaceMemberRepository.findLastReadMessageIdBy(memberId, chatRoomId);
+
+        int updateCount =
+                spaceMemberRepository.updateLastReadMessageId(memberId, chatRoomId, latestChatId);
+
+        if (updateCount == 0) {
+            return;
+        }
+
+        Map<Long, UpdateChatRoom> updatesByMemberId = broadcastDataBuilder.build(chatRoomId, Set.of(memberId));
+        publisher.publishEvent(new PublishReadEvent(
+                memberId,
+                chatRoomId,
+                previousLastReadChatId,
+                latestChatId,
+                updatesByMemberId
+        ));
+    }
+}

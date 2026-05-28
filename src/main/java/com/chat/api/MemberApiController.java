@@ -1,6 +1,8 @@
 package com.chat.api;
 
 import com.chat.api.response.member.GetMembersResponse;
+import com.chat.api.request.member.ChangeNicknameRequest;
+import com.chat.api.request.member.ChangePasswordRequest;
 import com.chat.api.request.member.JoinRequest;
 import com.chat.api.response.member.JoinResponse;
 import com.chat.api.request.member.LoginRequest;
@@ -13,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +47,10 @@ public class MemberApiController {
 
         LoginResponse loginResponse = memberService.login(request);
 
+        // 세션 고정(Session Fixation) 방지 : 기존 세션 무효화 후 새로 생성
+        HttpSession old = servletRequest.getSession(false);
+        if (old != null) old.invalidate();
+
         HttpSession session = servletRequest.getSession(true);
         session.setAttribute(SessionConst.SESSION_ID, loginResponse.getMemberId());
 
@@ -63,6 +70,34 @@ public class MemberApiController {
                 .status(HttpStatus.OK)
                 .data(response)
                 .message("사용자 정보 조회에 성공했습니다.")
+                .build();
+    }
+
+    @PatchMapping("/api/member/nickname")
+    public Result<Void> changeNickname(
+            @RequestBody ChangeNicknameRequest request,
+            HttpSession session) {
+
+        Long memberId = (Long) session.getAttribute(SessionConst.SESSION_ID);
+        memberService.changeNickname(memberId, request.getNickname());
+
+        return Result.<Void>builder()
+                .status(HttpStatus.OK)
+                .message("닉네임이 변경됐습니다.")
+                .build();
+    }
+
+    @PatchMapping("/api/member/password")
+    public Result<Void> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            HttpSession session) {
+
+        Long memberId = (Long) session.getAttribute(SessionConst.SESSION_ID);
+        memberService.changePassword(memberId, request.getCurrentPassword(), request.getNewPassword());
+
+        return Result.<Void>builder()
+                .status(HttpStatus.OK)
+                .message("비밀번호가 변경됐습니다.")
                 .build();
     }
 }

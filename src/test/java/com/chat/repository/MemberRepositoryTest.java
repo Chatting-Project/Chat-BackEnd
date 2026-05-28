@@ -1,7 +1,7 @@
 package com.chat.repository;
 
-import com.chat.entity.ChatRoom;
-import com.chat.entity.ChatRoomParticipant;
+import com.chat.entity.Space;
+import com.chat.entity.SpaceMember;
 import com.chat.entity.Member;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,9 +21,9 @@ class MemberRepositoryTest {
     @Autowired
     private MemberRepository memberRepository;
     @Autowired
-    private ChatRoomRepository chatRoomRepository;
+    private SpaceRepository spaceRepository;
     @Autowired
-    private ChatRoomParticipantRepository chatRoomParticipantRepository;
+    private SpaceMemberRepository spaceMemberRepository;
     
     @Test
     @DisplayName("회원 정보를 저장한다.")
@@ -89,15 +89,12 @@ class MemberRepositoryTest {
 
         // when
         String title = "title";
-        ChatRoom chatRoom = ChatRoom.of(title);
-        ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+        Space chatRoom = Space.of(title);
+        Space savedChatRoom = spaceRepository.save(chatRoom);
 
-        ChatRoomParticipant firstrChatRoomParticipant = new ChatRoomParticipant(true, firstMember, savedChatRoom);
-        chatRoomParticipantRepository.save(firstrChatRoomParticipant);
-        ChatRoomParticipant secondChatRoomParticipant = new ChatRoomParticipant(true, secondMember, savedChatRoom);
-        chatRoomParticipantRepository.save(secondChatRoomParticipant);
-        ChatRoomParticipant thirdChatRoomParticipant = new ChatRoomParticipant(false, thirdMember, savedChatRoom);
-        chatRoomParticipantRepository.save(thirdChatRoomParticipant);
+        spaceMemberRepository.save(SpaceMember.of(firstMember, savedChatRoom));
+        spaceMemberRepository.save(SpaceMember.of(secondMember, savedChatRoom));
+        spaceMemberRepository.save(SpaceMember.of(thirdMember, savedChatRoom));
 
         // when
         List<Long> memberIds = memberRepository.findMemberIdsIn(chatRoom.getId());

@@ -1,18 +1,16 @@
 package com.chat.fixture;
 
-import com.chat.entity.Chat;
-import com.chat.entity.ChatRoom;
-import com.chat.entity.ChatRoomParticipant;
+import com.chat.entity.Message;
+import com.chat.entity.Space;
+import com.chat.entity.SpaceMember;
 import com.chat.entity.Member;
-import com.chat.repository.ChatRepository;
-import com.chat.repository.ChatRoomParticipantRepository;
-import com.chat.repository.ChatRoomRepository;
-import com.chat.repository.MemberRepository;
+import com.chat.repository.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -26,11 +24,11 @@ public class TestDataFixture {
     @Autowired
     private MemberRepository memberRepository;
     @Autowired
-    private ChatRoomRepository chatRoomRepository;
+    private SpaceRepository spaceRepository;
     @Autowired
-    private ChatRoomParticipantRepository chatRoomParticipantRepository;
+    private SpaceMemberRepository spaceMemberRepository;
     @Autowired
-    private ChatRepository chatRepository;
+    private MessageRepository messageRepository;
     @PersistenceContext
     private EntityManager em;
 
@@ -43,35 +41,39 @@ public class TestDataFixture {
         return memberRepository.save(member);
     }
 
-    public ChatRoom savedChatRoomBy(String title, List<Member> participants) {
+//    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Space savedChatRoomBy(String title, List<Member> participants) {
 
-        ChatRoom chatRoom = ChatRoom.of(title);
-        ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+        Space chatRoom = Space.of(title);
+        Space savedChatRoom = spaceRepository.save(chatRoom);
 
         for (Member participant : participants) {
-            ChatRoomParticipant chatRoomParticipant = ChatRoomParticipant.builder()
-                    .chatRoom(savedChatRoom)
-                    .member(participant)
-                    .isParticipate(false)
-                    .build();
-            chatRoomParticipantRepository.save(chatRoomParticipant);
+            SpaceMember spaceMember = SpaceMember.of(participant, savedChatRoom);
+            spaceMemberRepository.save(spaceMember);
         }
 
         return savedChatRoom;
     }
 
-    public ChatRoom savedSimpleChatRoom(String title) {
-        ChatRoom chatRoom = ChatRoom.of(title);
-        return chatRoomRepository.save(chatRoom);
+    public Space savedSimpleChatRoom(String title) {
+        Space chatRoom = Space.of(title);
+        return spaceRepository.save(chatRoom);
     }
 
-    public Chat savedSimpleChat(String message, Member member, ChatRoom chatRoom) {
-        Chat chat = new Chat(message, member, chatRoom);
-        return chatRepository.save(chat);
+    public Message savedSimpleChat(String message, Member member, Space chatRoom) {
+        Message chat = Message.of(message, member, chatRoom);
+        return messageRepository.save(chat);
     }
 
-    public void flushAllData() {
+    @Transactional
+    public void deleteAllData() {
+        em.createQuery("DELETE FROM DiscussionMessage").executeUpdate();
+        em.createQuery("DELETE FROM Discussion").executeUpdate();
+        em.createQuery("DELETE FROM Message").executeUpdate();
+        em.createQuery("DELETE FROM SpaceMember").executeUpdate();
+        em.createQuery("DELETE FROM Space").executeUpdate();
+        em.createQuery("DELETE FROM Member").executeUpdate();
         em.flush();
-        em.clear();
     }
+
 }

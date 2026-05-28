@@ -1,13 +1,18 @@
 package com.chat.socket.manager;
 
+import com.chat.exception.CustomException;
+import com.chat.exception.ErrorCode;
+import com.chat.utils.annotation.VisibleForTesting;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
 
-import java.io.IOException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -16,29 +21,41 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WebsocketSessionManager {
 
     // 소켓에 연결된 사용자 정보
-    private final Map<Long, WebSocketSession> activeMemberSessions = new ConcurrentHashMap<>();
+    private final Map<Long, Set<WebSocketSession>> activeMemberSessions = new ConcurrentHashMap<>();
 
     public void addSession(Long memberId, WebSocketSession session) {
-        activeMemberSessions.put(memberId, session);
+
+        ConcurrentWebSocketSessionDecorator safeSession
+                = new ConcurrentWebSocketSessionDecorator(session, 10_000, 256 * 1024);
+
+        activeMemberSessions
+                .computeIfAbsent(memberId, k -> ConcurrentHashMap.newKeySet())
+                .add(safeSession);
     }
 
-    public WebSocketSession getSessionBy(Long memberId) {
-        return activeMemberSessions.get(memberId);
+    public WebSocketSession getWrappedSession(WebSocketSession rawSession) {
+        return activeMemberSessions.values().stream()
+                .flatMap(Set::stream)
+                .filter(s -> s.getId().equals(rawSession.getId()))
+                .findFirst()
+                .orElseThrow(() -> new CustomException(ErrorCode.WEB_SOCKET_SESSION_NOT_EXIST));
     }
 
-    public void removeSession(Long memberId) {
-        WebSocketSession session = activeMemberSessions.remove(memberId);
+    public Collection<WebSocketSession> getSessionBy(Long memberId) {
+        Set<WebSocketSession> webSocketSessions = activeMemberSessions.get(memberId);
+        return webSocketSessions != null ? webSocketSessions : Collections.emptySet();
+    }
 
-        if (session == null) {
-            return;
-        }
+    public void removeSession(Long memberId, WebSocketSession session) {
 
-        if (session.isOpen()) {
-            try {
-                session.close(CloseStatus.NORMAL);
-            } catch (IOException e) {
-                log.warn("Failed to close WebSocket session for memberId={}", memberId, e);
-            }
-        }
+        activeMemberSessions.computeIfPresent(memberId, (k, sessions) -> {
+            sessions.removeIf(s -> s.getId().equals(session.getId()));
+            return sessions.isEmpty() ? null : sessions;
+        });
+    }
+
+    @VisibleForTesting
+    public void clearAll() {
+        activeMemberSessions.clear();
     }
 }

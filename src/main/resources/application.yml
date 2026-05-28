@@ -1,24 +1,3 @@
-spring:
-
-  profiles:
-    active: local
-
-  datasource:
-    url: jdbc:postgresql://localhost:5432/chat
-    username: postgres
-    password:
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
-    hibernate:
-      ddl-auto: create  # 필요에 따라 create, update, validate, none 중 선택
-    properties:
-      hibernate:
-        show_sql: true
-        format_sql: true
-        default_batch_fetch_size: 100
-
 springdoc:
   swagger-ui:
     path: /docs/swagger-ui.html # UI 경로 변경
@@ -30,3 +9,52 @@ springdoc:
     path: /api-docs            # API 문서 경로 변경
     enabled: true              # API 문서 생성 활성화
   version: v3.0.1              # OpenAPI 스펙 버전 (선택 사항, Springdoc이 처리)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+      base-path: /actuator
+
+  metrics:
+    tags:
+      application: chat-backend
+      environment: ${spring.profiles.active}
+
+    enable:
+      jvm: true
+      system: true
+      process: true
+      tomcat: true
+      hikaricp: true
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        ws_send_duration: true
+      slo:
+        http.server.requests: 100ms,200ms,500ms,1s,2s
+        ws_send_duration: 1ms,5ms,10ms,50ms,100ms,500ms
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+        ws_send_duration: 0.95, 0.99
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        step: 1m
+
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+spring:
+  datasource:
+    hikari:
+      register-mbeans: true
+  jmx:
+    enabled: true
